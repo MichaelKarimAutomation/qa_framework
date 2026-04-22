@@ -1,5 +1,5 @@
 import pytest
-from pages.todo_page import TodoPage
+from pom.todo_page import TodoPage
 
 
 @pytest.mark.ui
