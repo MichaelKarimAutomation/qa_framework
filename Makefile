@@ -1,5 +1,5 @@
 test:
-	pytest tests/ -v
+	rmdir /s /q reports & pytest tests/ -v
 
 smoke:
 	pytest tests/ -v -m smoke
