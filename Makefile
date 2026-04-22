@@ -9,3 +9,6 @@ report:
 
 clean:
 	rmdir /s /q reports
+
+parallel:
+	pytest tests/ -v -n auto
