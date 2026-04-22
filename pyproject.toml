@@ -24,6 +24,7 @@ dependencies = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 env_files = [".env"]
+addopts = "--alluredir=reports/allure-results"
 markers = [
     "ui: marks tests as UI tests",
     "api: marks tests as API tests",
