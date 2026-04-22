@@ -1,7 +1,10 @@
 import pytest
+import allure
 from pom.todo_page import TodoPage
 
 
+@allure.feature("UI Tests")
+@allure.story("Add Todo Task")
 @pytest.mark.ui
 @pytest.mark.smoke
 def test_add_todo_item(page, todo_url):

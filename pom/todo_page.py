@@ -1,3 +1,4 @@
+import allure
 from playwright.sync_api import Page
 
 
@@ -12,9 +13,10 @@ class TodoPage:
         self.page.goto(url)
 
     def add_item(self, title: str):
-        self.new_todo_input.fill(title)
+        with allure.step(f"Add todo item: {title}"):
+            self.new_todo_input.fill(title)
         self.new_todo_input.press("Enter")
 
     def item_exists(self, title: str) -> bool:
-        return self.todo_items.filter(has_text=title).count() > 0
-    
+        with allure.step(f"Check item exists: {title}"):
+            return self.todo_items.filter(has_text=title).count() > 0
