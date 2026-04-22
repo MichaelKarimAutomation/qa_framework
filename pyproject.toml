@@ -24,3 +24,9 @@ dependencies = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 env_files = [".env"]
+markers = [
+    "ui: marks tests as UI tests",
+    "api: marks tests as API tests",
+    "smoke: marks tests as smoke tests",
+    "regression: marks tests as regression tests",
+]
