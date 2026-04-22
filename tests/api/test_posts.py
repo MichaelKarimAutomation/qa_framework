@@ -1,6 +1,6 @@
 import pytest
 import allure
-from data.factories import PostFactory
+from data.factories import PostFactory, UserFactory
 
 
 @allure.feature("API Tests")
@@ -14,7 +14,6 @@ def test_get_post(api_client):
         assert response.status_code == 200
         assert response.json()["id"] == 1
 
-
 @allure.feature("API Tests")
 @allure.story("Create Post")
 @pytest.mark.api
@@ -27,7 +26,6 @@ def test_create_post(api_client):
         assert response.status_code == 201
         assert response.json()["title"] == "My Post"
 
-
 @allure.feature("API Tests")
 @allure.story("Get Post with Factory")
 @pytest.mark.api
@@ -39,3 +37,16 @@ def test_create_post_with_factory(api_client):
     with allure.step("Verify response satus and title"):
         assert response.status_code == 201
         assert response.json()["title"] == payload["title"]
+
+@allure.feature("API Tests")
+@allure.story("Create User with Factory")
+@pytest.mark.api
+@pytest.mark.regression
+def test_create_user_with_factory(api_client):
+    with allure.step("Generate user data"):
+        user = UserFactory()
+    with allure.step("Send POST request"):
+        response = api_client.post("/users", user)
+    with allure.step("Verify response"):
+        assert response.status_code == 201
+        assert response.json()["email"] == user["email"]
