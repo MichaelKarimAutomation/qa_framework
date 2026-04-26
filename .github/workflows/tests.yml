@@ -20,6 +20,8 @@ jobs:
   example_test:
     runs-on: ubuntu-latest
     environment: ${{ inputs.env || 'dev_env' }}
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
@@ -46,6 +48,14 @@ jobs:
         with:
           name: allure-results
           path: reports/allure-results
+
+      - name: Install Allure
+        if: always()
+        run: |
+          wget -O allure.tgz https://github.com/allure-framework/allure2/releases/download/2.32.0/allure-2.32.0.tgz
+          tar -zxvf allure.tgz
+          sudo mv allure-2.32.0 /opt/allure
+          echo "/opt/allure/bin" >> $GITHUB_PATH
       
       - name: generate Allure Report
         if: always()
