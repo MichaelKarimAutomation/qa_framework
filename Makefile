@@ -1,3 +1,9 @@
+report:
+	allure serve reports/allure-results
+
+clean:
+	rmdir /s /q reports
+
 test:
 	rmdir /s /q reports & pytest tests/ -v --env=uat
 
@@ -7,9 +13,8 @@ smoke:
 parallel:
 	pytest tests/ -v -n auto --env=uat
 
-report:
-	allure serve reports/allure-results
+lint:
+	ruff check .
 
-clean:
-	rmdir /s /q reports
-	
+format:
+	ruff format .

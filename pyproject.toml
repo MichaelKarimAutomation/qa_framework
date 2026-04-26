@@ -32,3 +32,6 @@ markers = [
     "smoke: marks tests as smoke tests",
     "regression: marks tests as regression tests",
 ]
+
+[tool.ruff]
+line-length = 120

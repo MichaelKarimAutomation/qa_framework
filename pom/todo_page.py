@@ -3,12 +3,11 @@ from playwright.sync_api import Page
 
 
 class TodoPage:
-
     def __init__(self, page: Page) -> None:
         self.page = page
         self.new_todo_input = page.locator(".new-todo")
         self.todo_items = page.locator(".todo-list li")
-    
+
     def navigate(self, url: str):
         self.page.goto(url)
 
