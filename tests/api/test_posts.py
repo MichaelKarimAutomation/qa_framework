@@ -29,7 +29,7 @@ def test_create_post(api_client):
 @allure.feature("API Tests")
 @allure.story("Get Post with Factory")
 @pytest.mark.api
-@pytest.mark.smoke
+@pytest.mark.regression
 def test_create_post_with_factory(api_client):
     with allure.step("Create POST using Factory for posts"):
         payload = PostFactory()
@@ -50,3 +50,15 @@ def test_create_user_with_factory(api_client):
     with allure.step("Verify response"):
         assert response.status_code == 201
         assert response.json()["email"] == user["email"]
+
+@allure.feature("API Tests")
+@allure.story("Get Post")
+@pytest.mark.api
+@pytest.mark.regression
+@pytest.mark.parametrize("post_id", [1, 2, 3])
+def test_get_multiple_posts(api_client, post_id):
+    with allure.step(f"Send GET request for post {post_id}"):
+        response = api_client.get(f"/posts/{post_id}")
+    with allure.step("Verify response"):
+        assert response.status_code == 200
+        assert response.json()["id"] == post_id
