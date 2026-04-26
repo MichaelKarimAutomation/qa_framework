@@ -10,16 +10,16 @@ on:
       env:
         description: 'Environment to run against'
         required: true
-        default: 'env_dev'
+        default: 'dev_env'
         type: choice
         options:
-          - env_uat
-          - env_dev
+          - uat_env
+          - dev_env
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.env || 'env_dev' }}
+    environment: ${{ inputs.env || 'dev_env' }}
 
     steps:
       - name: Checkout code
@@ -38,7 +38,7 @@ jobs:
         env:
           TODOMVC_URL: ${{ secrets.TODOMVC_URL }}
           JSONPLACEHOLDER_URL: ${{ secrets.JSONPLACEHOLDER_URL }}
-        run: uv run pytest tests/ -v --env=${{ inputs.env || 'env_uat' }}
+        run: uv run pytest tests/ -v --env=${{ inputs.env || 'uat_env' }}
 
       - name: Upload Allure results
         uses: actions/upload-artifact@v4
