@@ -38,7 +38,7 @@ jobs:
         env:
           TODOMVC_URL: ${{ secrets.TODOMVC_URL }}
           JSONPLACEHOLDER_URL: ${{ secrets.JSONPLACEHOLDER_URL }}
-        run: uv run pytest tests/ -v --env=${{ inputs.env || 'uat_env' }}
+        run: uv run pytest tests/ -v --env=${{ inputs.env || 'dev_env' }}
 
       - name: Upload Allure results
         uses: actions/upload-artifact@v4
