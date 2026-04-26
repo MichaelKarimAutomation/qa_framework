@@ -10,7 +10,9 @@ wheels/
 .venv
 
 # dotenvs
+!.env.example
 .env
+.env.*
 
 # Reports
 reports/

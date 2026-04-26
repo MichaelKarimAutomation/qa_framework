@@ -23,7 +23,6 @@ dependencies = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-env_files = [".env"]
 reruns = 2
 reruns_delay = 1
 addopts = "--alluredir=reports/allure-results"

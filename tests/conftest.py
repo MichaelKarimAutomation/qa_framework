@@ -18,3 +18,13 @@ def api_client():
     client = APIClient()
     yield client
     client.close()
+
+def pytest_addoption(parser):
+    parser.addoption("--env", default="uat", help="Environment to run tests against")
+
+def pytest_configure(config):
+    env = config.getoption("--env", default="uat")
+    env_file = f".env.{env}"
+    from dotenv import load_dotenv
+    load_dotenv(env_file, override=True)
+    
