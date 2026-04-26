@@ -5,10 +5,21 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'Environment to run against'
+        required: true
+        default: 'env_dev'
+        type: choice
+        options:
+          - env_uat
+          - env_dev
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    environment: ${{ inputs.env || 'env_dev' }}
 
     steps:
       - name: Checkout code
@@ -24,7 +35,10 @@ jobs:
         run: uv run playwright install --with-deps chromium
 
       - name: Run tests
-        run: uv run pytest tests/ -v --env=uat
+        env:
+          TODOMVC_URL: ${{ secrets.TODOMVC_URL }}
+          JSONPLACEHOLDER_URL: ${{ secrets.JSONPLACEHOLDER_URL }}
+        run: uv run pytest tests/ -v --env=${{ inputs.env || 'env_uat' }}
 
       - name: Upload Allure results
         uses: actions/upload-artifact@v4
