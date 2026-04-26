@@ -17,7 +17,7 @@ on:
           - dev_env
 
 jobs:
-  test:
+  example_test:
     runs-on: ubuntu-latest
     environment: ${{ inputs.env || 'dev_env' }}
 
