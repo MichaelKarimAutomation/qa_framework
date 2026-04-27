@@ -15,6 +15,11 @@ def todo_url():
     return os.getenv("TODOMVC_URL")
 
 
+@pytest.fixture
+def grocery_url():
+    return os.getenv("SELENIUM_PRACTISE_URL")
+
+
 @pytest.fixture(scope="session")  # Ran once per scope
 def api_client():
     client = APIClient()

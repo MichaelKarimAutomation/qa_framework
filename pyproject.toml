@@ -13,6 +13,7 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "pytest>=9.0.3",
     "pytest-dotenv>=0.5.2",
+    "pytest-httpserver>=1.1.5",
     "pytest-playwright>=0.7.2",
     "pytest-rerunfailures>=16.1",
     "pytest-xdist>=3.8.0",
@@ -34,4 +35,4 @@ markers = [
 ]
 
 [tool.ruff]
-line-length = 120
+line-length = 150
