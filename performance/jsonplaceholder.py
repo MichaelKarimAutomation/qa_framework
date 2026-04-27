@@ -1,6 +1,7 @@
 from locust import HttpUser, task, between
 
 
+# Active - safe to run against JSONPlaceholder (built for testing)
 class APIUser(HttpUser):
     host = "https://jsonplaceholder.typicode.com"
     wait_time = between(1, 3)

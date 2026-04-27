@@ -15,11 +15,7 @@ def test_mock_product_list(page, grocery_url):
     ]
 
     def mock_response(route):
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps(mock_products)
-        )
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(mock_products))
 
     page.route("**/products.json", mock_response)
 
