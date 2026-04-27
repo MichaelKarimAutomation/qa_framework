@@ -1,0 +1,44 @@
+stages:
+  - test
+  - report
+
+variables:
+  TODOMVC_URL: $TODOMVC_URL
+  JSONPLACEHOLDER_URL: $JSONPLACEHOLDER_URL
+
+example_test:
+  stage: test
+  image: python:3.13-slim
+  before_script:
+    - pip install uv
+    - uv sync --frozen
+    - uv run playwright install --with-deps chromium
+  script:
+    - uv run pytest tests/ -v --env=${ENVIRONMENT:-dev_env}
+  artifacts:
+    when: always
+    paths:
+      - reports/allure-results
+    expire_in: 7 days
+
+generate_and_deploy_report:
+  stage: report
+  image: python:3.13-slim
+  when: always
+  before_script:
+    - apt-get update && apt-get install -y wget
+    - wget -O allure.tgz https://github.com/allure-framework/allure2/releases/download/2.32.0/allure-2.32.0.tgz
+    - tar -zxvf allure.tgz
+    - mv allure-2.32.0 /opt/allure
+    - export PATH="/opt/allure/bin:$PATH"
+  script:
+    - allure generate reports/allure-results --clean -o reports/allure-report
+  artifacts:
+    when: always
+    paths:
+      - reports/allure-report
+    expire_in: 7 days
+  pages:
+    publish: reports/allure-report
+  dependencies:
+    - example_test
