@@ -18,3 +18,10 @@ lint:
 
 format:
 	ruff format .
+
+docker-build:
+	docker build -t qa-framework .
+
+docker-run:
+	docker run --rm qa-framework
+	
