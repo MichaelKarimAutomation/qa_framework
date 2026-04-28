@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QA Framework - Windows Installation Guide</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+    h1, h2 { color: #333; }
+    code { background: #f4f4f4; padding: 2px 5px; border-radius: 3px; }
+    pre { background: #f4f4f4; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    ul { padding-left: 20px; }
+    .note { background: #fff8e1; border-left: 4px solid #ffc107; padding: 8px 12px; margin: 10px 0; }
+  </style>
+</head>
+<body>
+
+  <h1>QA Framework - Windows Installation Guide</h1>
+
+  <h2>Step 1: Python</h2>
+  <ul>
+    <li>Download and install from <code>https://www.python.org/downloads/</code></li>
+    <li>Check <strong>Add Python to PATH</strong> during installation</li>
+  </ul>
+
+  <h2>Step 2: Download Programs</h2>
+  <ul>
+    <li>VS Code: <code>https://code.visualstudio.com/</code></li>
+    <li>GitHub Desktop: <code>https://desktop.github.com/</code>
+      <ul>
+        <li>Git is installed automatically</li>
+      </ul>
+    </li>
+    <li>Docker Desktop (AMD): <code>https://www.docker.com/products/docker-desktop/</code>
+      <ul>
+        <li>Use WSL 2 backend when prompted</li>        
+        <li>After install, open a terminal and run: <code>wsl --update</code></li>
+      </ul>
+    </li>
+  </ul>
+
+  <h2>Step 3: Clone Repository</h2>
+  <ul>
+    <li>Open GitHub Desktop and sign in with your GitHub account</li>
+    <li>Clone the <strong>qa_framework</strong> repository to <code>C:\Coding\qa_framework</code></li>
+    <li>Open the folder in VS Code: <strong>File &rarr; Open Folder</strong></li>
+  </ul>
+
+  <h2>Step 4: VS Code Setup</h2>
+  <ul>
+    <li>Open Extensions panel (<code>Ctrl+Shift+X</code>) and install:
+      <ul>
+        <li><strong>Python</strong> (Microsoft)</li>
+        <li><strong>Pylance</strong> (Microsoft)</li>
+        <li><strong>Ruff</strong> (Astral Software)</li>
+        <li><strong>Playwright Test for VS Code</strong> (Microsoft)</li>
+        <li><strong>Docker</strong> (Microsoft)</li>
+        <li><strong>Makefile Tools</strong> (Microsoft)</li>
+        <li><strong>GitLens</strong> (GitKraken)</li>
+        <li><strong>Windsurf</strong> (Windsurf)
+          <ul>
+            <li>You will need to make a free account as part of the extension installation</li>
+          </ul>
+        </li>
+      </ul>
+    </li>
+  </ul>
+
+  <h2>Step 5: Install uv</h2>
+  <ul>
+    <li>Open a terminal in VS Code (<strong>Terminal &rarr; New Terminal</strong>) and run:
+      <pre>powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"</pre>
+    </li>
+    <li>Open <strong>Edit environment variables for your account</strong> &rarr; <strong>Path</strong> &rarr; <strong>New</strong> and add:
+      <pre>C:\Users\YourUsername\.local\bin</pre>
+    </li>
+    <li>Close and reopen the terminal, then verify:
+      <pre>uv --version</pre>
+    </li>
+  </ul>
+
+  <h2>Step 6: Scoop, Java, Make, and Allure</h2>
+  <ul>
+    <li>In PowerShell terminal, run:
+      <pre>powershell -ExecutionPolicy ByPass -c "irm get.scoop.sh | iex"</pre>
+    </li>
+    <li>Open <strong>Edit environment variables for your account</strong> &rarr; <strong>Path</strong> &rarr; <strong>New</strong> and add:
+      <pre>C:\Users\YourUsername\scoop\shims</pre>
+    </li>
+    <li>Close and reopen the terminal, then run:
+      <pre>scoop bucket add java
+scoop install temurin-lts-jdk make allure</pre>
+    </li>
+    <li>Verify:
+      <pre>allure --version
+make --version</pre>
+    </li>
+  </ul>
+
+  <h2>Step 7: Environment Variables</h2>
+  <ul>
+    <li>In the project root, copy <code>.env.example</code> to <code>.env</code>:
+      <pre>copy .env.example .env</pre>
+    </li>
+    <li>Open <code>.env</code> and fill in all values</li>
+  </ul>
+
+  <h2>Step 8: Virtual Environment and Dependencies</h2>
+  <ul>
+    <li>In the VS Code terminal, run:
+      <pre>uv venv
+.venv\Scripts\activate
+uv add pytest pytest-xdist pytest-rerunfailures playwright pytest-playwright httpx allure-pytest faker factory-boy sqlalchemy psycopg2-binary testcontainers pytest-dotenv ruff pytest-httpserver locust jsonschema
+playwright install</pre>
+    </li>
+  </ul>
+
+  <h2>Step 9: Select Python Interpreter</h2>
+  <ul>
+    <li>Press <code>Ctrl+Shift+P</code> &rarr; type <strong>Python: Select Interpreter</strong> &rarr; select the one with <code>.venv</code> in the path</li>
+  </ul>
+
+  <h2>Step 10: Verify Installation</h2>
+  <ul>
+    <li>Run all tests:
+      <pre>make test</pre>
+    </li>
+    <li>All tests should pass.</li>
+  </ul>
+
+</body>
+</html>
