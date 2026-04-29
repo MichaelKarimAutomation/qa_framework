@@ -19,7 +19,7 @@ fi
 echo ""
 echo "Installing system dependencies..."
 apt-get update -qq
-apt-get install -y -qq wget curl make openjdk-17-jre-headless
+apt-get install -y -qq wget curl make default-jre-headless
 
 # ─── Install Allure ───────────────────────────────────────────────────────────
 echo ""
