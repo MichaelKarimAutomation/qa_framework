@@ -57,7 +57,7 @@ if ($PathsToAdd.Count -gt 0) {
 
 # ─── Virtual Environment ─────────────────────────────────────────────────────
 Write-Host "`nCreating virtual environment..." -ForegroundColor Yellow
-uv venv
+uv venv --clear
 Write-Host "Virtual environment created." -ForegroundColor Green
 
 # ─── Install Python Dependencies ─────────────────────────────────────────────

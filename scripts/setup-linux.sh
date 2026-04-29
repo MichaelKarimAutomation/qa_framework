@@ -66,7 +66,7 @@ fi
 # ─── Virtual Environment ─────────────────────────────────────────────────────
 echo ""
 echo "Creating virtual environment..."
-uv venv
+uv venv --clear
 echo "Virtual environment created."
 
 # ─── Install Python Dependencies ─────────────────────────────────────────────

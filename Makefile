@@ -2,10 +2,10 @@ report:
 	allure serve reports/allure-results
 
 clean:
-	rmdir /s /q reports
+	python scripts/clean.py
 
 test:
-	rmdir /s /q reports & pytest tests/ -v --env=uat
+	python scripts/clean.py & pytest tests/ -v --env=uat
 
 smoke:
 	pytest tests/ -v -m smoke --env=uat

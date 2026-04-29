@@ -1,0 +1,2 @@
+# Forces all .sh files to use linux friendly Line Feed (LF) endings, even on Windows.
+*.sh text eol=lf
