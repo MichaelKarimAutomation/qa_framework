@@ -1,5 +1,5 @@
 # QA Framework - Windows Setup Script
-# Run via: python scripts/setup.py
+# Run via: install.py
 
 $ErrorActionPreference = "Stop"
 $PathsToAdd = @()

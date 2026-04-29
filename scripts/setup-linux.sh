@@ -1,6 +1,6 @@
 #!/bin/bash
 # QA Framework - Linux/Docker Setup Script
-# Run via: python scripts/setup.py
+# Run via: install.py
 
 set -e
 

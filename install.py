@@ -3,7 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-SCRIPTS_DIR = Path(__file__).parent
+SCRIPTS_DIR = Path(__file__).parent / "scripts"
 
 
 def main():
@@ -30,7 +30,7 @@ def main():
         print("Setup failed. Check the output above for errors.")
         sys.exit(result.returncode)
 
-    print("\nSetup complete. Run 'make test' to verify your installation.")
+    print("\nSetup complete.")
 
 
 if __name__ == "__main__":

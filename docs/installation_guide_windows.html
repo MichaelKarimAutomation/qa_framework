@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QA Framework - Windows Installation Guide</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+    h1, h2 { color: #333; }
+    code { background: #f4f4f4; padding: 2px 5px; border-radius: 3px; }
+    pre { background: #f4f4f4; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    ul { padding-left: 20px; }
+    .note { background: #fff8e1; border-left: 4px solid #ffc107; padding: 8px 12px; margin: 10px 0; }
+  </style>
+</head>
+<body>
+
+  <h1>QA Framework - Windows Installation Guide</h1>
+
+  <h2>Step 1: Python</h2>
+  <ul>
+    <li>Download and install from <code>https://www.python.org/downloads/</code></li>
+    <ul>
+      <li>Check <strong>Add Python to PATH</strong> during installation</li>
+    </ul>
+  </ul>
+
+  <h2>Step 2: Download Programs</h2>
+  <ul>
+    <li>VS Code: <code>https://code.visualstudio.com/</code></li>
+    <li>GitHub Desktop: <code>https://desktop.github.com/</code>
+      <ul>
+        <li>Git is installed automatically</li>
+      </ul>
+    </li>
+    <li>Docker Desktop (AMD): <code>https://www.docker.com/products/docker-desktop/</code>
+      <ul>
+        <li>Use WSL 2 backend when prompted</li>        
+        <li>After install, open a terminal and run: <code>wsl --update</code></li>
+      </ul>
+    </li>
+  </ul>
+
+  <h2>Step 3: Clone Repository</h2>
+  <ul>
+    <li>Open GitHub Desktop and sign in with your GitHub account</li>
+    <li>Clone the <strong>qa_framework</strong> repository to <code>C:\Coding\qa_framework</code></li>
+    <li>Open the folder in VS Code: <strong>File &rarr; Open Folder</strong></li>
+  </ul>
+
+  <h2>Step 4: VS Code Extensions</h2>
+  <p></p>
+  <details>
+    <summary>
+      These are the recommended extensions.
+    </summary>
+      <ul>
+        <li>Open Extensions panel (<code>Ctrl+Shift+X</code>) and install:
+          <ul>
+            <li><strong>Python</strong> (Microsoft)</li>
+            <li><strong>Pylance</strong> (Microsoft)</li>
+            <li><strong>Ruff</strong> (Astral Software)</li>
+            <li><strong>Playwright Test for VS Code</strong> (Microsoft)</li>
+            <li><strong>Docker</strong> (Microsoft)</li>
+            <li><strong>Makefile Tools</strong> (Microsoft)</li>
+            <li><strong>GitLens</strong> (GitKraken)</li>
+            <li><strong>Windsurf</strong> (Windsurf)
+              <ul>
+                <li>You will need to make a free account as part of the extension installation</li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+      </ul>
+  </details>
+
+  <h2>Step 5: Install Dependencies</h2>
+  <ul>
+    <li>Run <code>python install.py</code></li>
+    <ul>
+      <li>Installs: <code>uv + dependencies, Scoop, Java, Make, Allure</code></li>
+    </ul>
+    <li>Open a new terminal. It will automatically put you into the virtual environment.</li>
+    <details>
+      <summary>
+        If it does not, follow these steps.
+      </summary>
+        <ul>
+          <li>Press <code>Ctrl+Shift+P</code></li>
+          <li><code>Python: Select Interpreter</code></li>
+          <li>Select the one with <code>.venv</code> in the path</li>
+          <li>Open a new terminal, it should now automatically put you into the virtual environment</li>
+        </ul>
+    </details>
+  </ul>
+
+  <h2>Step 6: Environment Variables</h2>
+  <ul>
+    <li>In the project root, create <code>.env</code> file if it's missing.</li>
+    <li>Open <code>.env</code> and fill in all values</li>
+    <li>Use <code>.env.example</code> as a reference for required keys</li>
+  </ul>
+
+  <h2>Step 7: Verify Installation</h2>
+  <ul>
+    <li>Run this command, expecting all tests to pass:
+      <code>make test</code>
+    </li>
+  </ul>
+
+</body>
+</html>
