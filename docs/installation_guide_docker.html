@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QA Framework - Docker Installation Guide</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+    h1, h2 { color: #333; }
+    code { background: #f4f4f4; padding: 2px 5px; border-radius: 3px; }
+    pre { background: #f4f4f4; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    ul { padding-left: 20px; }
+  </style>
+</head>
+<body>
+
+  <h1>QA Framework - Docker Installation Guide</h1>
+
+  <h2>Step 1: Prerequisites</h2>
+  <ul>
+    <li>Docker Desktop must be installed and running. See <strong>Windows Installation Guide</strong> for instructions.</li>
+    <li>Clone the <strong>qa_framework</strong> repository to your machine via GitHub Desktop.</li>
+  </ul>
+
+  <h2>Step 2: Environment Variables</h2>
+  <ul>
+    <li>In the project root, create a <code>.env</code> file using <code>.env.example</code> as a reference.</li>
+    <li>Fill in all values.</li>
+  </ul>
+
+  <h2>Step 3: Build the Docker Image</h2>
+  <ul>
+    <li>Open a terminal in the project root and run:
+      <pre>docker build -t qa-framework .</pre>
+    </li>
+  </ul>
+
+  <h2>Step 4: Run the Tests</h2>
+  <ul>
+    <li>Run:
+      <pre>make docker-run</pre>
+    </li>
+    <li>All tests should pass.</li>
+  </ul>
+
+</body>
+</html>
