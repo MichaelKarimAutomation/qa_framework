@@ -57,6 +57,34 @@ if ($PathsToAdd.Count -gt 0) {
 
 # ─── Virtual Environment ─────────────────────────────────────────────────────
 Write-Host "`nCreating virtual environment..." -ForegroundColor Yellow
+$VenvPath = $null
+$ActiveVenv = $null
+if (Test-Path ".venv") {
+    $VenvPath = (Get-Item -LiteralPath ".venv").FullName
+}
+if ($env:VIRTUAL_ENV) {
+    try {
+        $ActiveVenv = (Get-Item -LiteralPath $env:VIRTUAL_ENV -ErrorAction Stop).FullName
+    } catch {
+        $ActiveVenv = $null
+    }
+}
+
+if ($VenvPath -and $ActiveVenv -and ($VenvPath -eq $ActiveVenv)) {
+    Write-Host "The current shell is using the repository .venv, so setup cannot remove it." -ForegroundColor Red
+    Write-Host "Deactivate the virtual environment and rerun install.py from a fresh shell." -ForegroundColor Yellow
+    exit 1
+}
+
+if ($VenvPath) {
+    Write-Host "Removing existing virtual environment..." -ForegroundColor Yellow
+    Get-ChildItem -LiteralPath ".venv" -Recurse -Force | ForEach-Object {
+        if ($_.Attributes -band [System.IO.FileAttributes]::ReadOnly) {
+            $_.Attributes = ($_.Attributes -band -bnot [System.IO.FileAttributes]::ReadOnly)
+        }
+    }
+    Remove-Item -LiteralPath ".venv" -Recurse -Force -ErrorAction Stop
+}
 uv venv --clear
 Write-Host "Virtual environment created." -ForegroundColor Green
 

@@ -1,3 +1,4 @@
+import os
 import platform
 import subprocess
 import sys
@@ -6,7 +7,40 @@ from pathlib import Path
 SCRIPTS_DIR = Path(__file__).parent / "scripts"
 
 
+def get_base_python_executable() -> Path | None:
+    base_prefix = Path(sys.base_prefix)
+    if sys.platform == "win32":
+        candidate = base_prefix / "python.exe"
+    else:
+        candidate = base_prefix / "bin" / "python3"
+        if not candidate.exists():
+            candidate = base_prefix / "bin" / "python"
+    return candidate if candidate.exists() else None
+
+
 def main():
+    repo_root = Path(__file__).parent.resolve()
+    venv_path = (repo_root / ".venv").resolve()
+    current_prefix = Path(sys.prefix).resolve()
+
+    if venv_path.exists() and current_prefix == venv_path:
+        base_python = get_base_python_executable()
+        if base_python is not None:
+            print("Detected active repository .venv. Re-launching setup with the base Python interpreter outside the venv...")
+
+            os.environ.pop("VIRTUAL_ENV", None)
+            os.environ.pop("PYTHONHOME", None)
+
+            venv_scripts = (venv_path / ("Scripts" if sys.platform == "win32" else "bin")).resolve()
+            path_parts = [p for p in os.environ.get("PATH", "").split(os.pathsep) if p and Path(p).resolve() != venv_scripts]
+            os.environ["PATH"] = os.pathsep.join(path_parts)
+
+            os.execv(str(base_python), [str(base_python), str(Path(__file__).resolve()), *sys.argv[1:]])
+
+        print("Error: install.py is running from the repository .venv, and the base Python executable could not be located.")
+        print("Deactivate the virtual environment and rerun install.py from a fresh shell.")
+        sys.exit(1)
+
     os_name = platform.system()
     print(f"Detected OS: {os_name}")
 

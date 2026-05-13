@@ -2,10 +2,10 @@ report:
 	allure serve reports/allure-results
 
 clean:
-	python scripts/clean.py
+	python scripts/delete_reports.py
 
 test:
-	python scripts/clean.py & pytest tests/ -v --env=uat
+	python scripts/delete_reports.py & pytest tests/ -v --env=uat
 
 smoke:
 	pytest tests/ -v -m smoke --env=uat
@@ -23,5 +23,5 @@ docker-build:
 	docker build -t qa-framework .
 
 docker-run:
-	docker run --rm qa-framework
+	docker run --rm --env-file .env qa-framework
 	
