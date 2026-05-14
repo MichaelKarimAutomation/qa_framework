@@ -28,7 +28,7 @@ dependencies = [
 pythonpath = ["."]
 reruns = 2
 reruns_delay = 1
-addopts = "--alluredir=reports/allure-results"
+addopts = "--alluredir=reports/allure-results --tracing=retain-on-failure"
 markers = [
     "ui: marks tests as UI tests",
     "api: marks tests as API tests",
