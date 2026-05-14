@@ -20,6 +20,11 @@ def grocery_url():
     return os.getenv("SELENIUM_PRACTISE_URL")
 
 
+@pytest.fixture
+def practice_url():
+    return os.getenv("SELENIUM_PRACTICE2_URL")
+
+
 @pytest.fixture(scope="session")  # Ran once per scope
 def api_client():
     client = APIClient()

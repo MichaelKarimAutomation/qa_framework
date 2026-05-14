@@ -1,0 +1,50 @@
+import json
+import pytest
+import allure
+from pom.practice_page import PracticePage
+
+
+@allure.feature("UI Testing")
+@allure.story("Interact with all elements on the practice page")
+@pytest.mark.ui
+@pytest.mark.regression
+def test_practice_page_interactions(page, practice_url):
+    practice = PracticePage(page)
+    practice.navigate(practice_url)
+
+    with allure.step("Verify radio button interaction"):
+        practice.click_radio_button_example(2)
+        practice.click_radio_button_example(3)
+        practice.click_radio_button_example(1)
+        radio1_status = practice.get_radio_button_example_status(1)
+        radio2_status = practice.get_radio_button_example_status(2)
+        radio3_status = practice.get_radio_button_example_status(3)
+
+        practice.input_suggestion_class_example("New Zeal")
+        suggestion_text = practice.get_suggestion_class_example()
+
+        practice.select_dropdown_example("Option2")
+        practice.select_dropdown_example("Option1")
+        practice.select_dropdown_example("option3")
+        selected_option = practice.get_dropdown_example_selected_option()
+
+        practice.check_checkbox_example_by_value("1", True)
+        practice.check_checkbox_example_by_value("2", False)
+        practice.check_checkbox_example_by_value("3", True)
+        practice.check_checkbox_example_by_value("3", False)
+        practice.check_checkbox_example_by_value("3", True)
+        checked_value1_status = practice.get_checkbox_example_checked_status("1")
+        checked_value2_status = practice.get_checkbox_example_checked_status("2")
+        checked_value3_status = practice.get_checkbox_example_checked_status("3")
+        
+        assert radio1_status is True
+        assert radio2_status is False
+        assert radio3_status is False
+
+        assert suggestion_text == "New Zealand"
+
+        assert selected_option == "Option3"
+
+        assert checked_value1_status is True
+        assert checked_value2_status is False
+        assert checked_value3_status is True
