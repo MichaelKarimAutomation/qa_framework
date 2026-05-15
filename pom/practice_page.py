@@ -1,5 +1,6 @@
-from playwright.sync_api import Page
 import allure
+from playwright.sync_api import Page, Dialog
+from pom.alerts import AlertHandler
 
 
 class PracticePage:
@@ -82,4 +83,64 @@ class PracticePage:
         with allure.step("Get checked checkbox status"):
             checkbox = self.page.locator(f"input[type='checkbox'][value='{checkbox_value}']")
             return checkbox.is_checked()
+
+    def click_open_window_and_return_page_instance(self):
+        with allure.step("Click open window and return new window page"):
+            with self.page.expect_popup() as popup_info:
+                self.page.locator("#openwindow").click()
+            return popup_info.value
+
+    def click_open_tab_and_return_page_instance(self):
+        with allure.step("Click open tab and return new tab page"):
+            with self.page.context.expect_page() as new_page_info:
+                self.page.locator("#opentab").click()
+            return new_page_info.value
+
+    def click_alert_and_return_dialog(self) -> Dialog:
+        with allure.step("Click switch to alert example"):
+            with self.page.expect_event("dialog") as dialog_info:
+                self.page.locator("input[value='Alert']").click(no_wait_after=True)
+            return dialog_info.value
+
+    def click_confirm(self):
+        with allure.step("Click confirm example"):
+            self.page.locator("input[value='Confirm']").click()
+
+    def click_hide_example(self):
+        with allure.step("Click hide example"):
+            self.page.locator("#hide-textbox").click()
+
+    def click_show_example(self):
+        with allure.step("Click show example"):
+            self.page.locator("#show-textbox").click()
+
+    def get_element_displayed_example_visibility(self) -> bool:
+        with allure.step("Get element displayed example visibility"):
+            element = self.page.locator("#displayed-text")
+            return element.is_visible()
+
+    def hover_mouse_hover_example(self):
+        with allure.step("Hover mouse hover example"):
+            self.page.locator("#mousehover").hover()
+
+    def click_top_hover_option(self):
+        with allure.step("Click top hover option"):
+            self.page.locator(".mouse-hover-content a[href='#top']").click()
+
+    def click_reload_hover_option(self):
+        with allure.step("Click reload hover option"):
+            self.page.locator(".mouse-hover-content a[href='']").click()
+
+    def switch_to_iframe_example(self):
+        with allure.step("Switch to iframe example"):
+            iframe = self.page.frame_locator("#courses-iframe")
+            return iframe
+
+    def get_iframe_course_name(self) -> str:
+        with allure.step("Get iframe course name"):
+            iframe = self.switch_to_iframe_example()
+            heading = iframe.locator("h2", has_text="Courses").first
+            if heading.count() == 0:
+                heading = iframe.locator("h2").first
+            return heading.text_content().strip()
             
