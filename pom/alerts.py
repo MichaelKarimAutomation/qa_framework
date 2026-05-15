@@ -1,51 +1,50 @@
-from playwright.sync_api import Page, TimeoutError
-import allure
+from playwright.sync_api import Page, Dialog
+from typing import Callable
 
 
 class AlertHandler:
-    @staticmethod
-    def expect_alert(page: Page, timeout: int = 5000):
-        """
-        Wait for an alert dialog to appear within the specified timeout.
-        Raises TimeoutError if no alert appears.
-        Returns the dialog object if it appears.
-        """
-        with allure.step(f"Expect alert to appear within {timeout}ms"):
-            with page.expect_event("dialog", timeout=timeout) as event_info:
-                pass
-            return event_info.value
+    _active_handlers: dict = {}
+
+    @classmethod
+    def enable_alert_auto_handling(cls, page: Page, action: str = "accept") -> None:
+        """Auto-handle all dialogs on this page until disable_alert_auto_handling() is called."""
+        cls.disable_alert_auto_handling(page)
+
+        def handler(d: Dialog) -> None:
+            d.accept() if action == "accept" else d.dismiss()
+
+        cls._active_handlers[id(page)] = handler
+        page.on("dialog", handler)
+
+    @classmethod
+    def disable_alert_auto_handling(cls, page: Page) -> None:
+        """Stop auto-handling dialogs on this page."""
+        handler = cls._active_handlers.pop(id(page), None)
+        if handler:
+            page.remove_listener("dialog", handler)
 
     @staticmethod
-    def accept_alert(dialog):
-        """
-        Accept the given alert dialog.
-        """
-        with allure.step("Accept alert"):
-            dialog.accept()
+    def click_and_accept(page: Page, trigger: Callable) -> Dialog:
+        """Click trigger(), accept the resulting dialog, and return it for message inspection."""
+        captured = []
+
+        def handle(d: Dialog) -> None:
+            captured.append(d)
+            d.accept()
+
+        page.once("dialog", handle)
+        trigger()
+        return captured[0]
 
     @staticmethod
-    def dismiss_alert(dialog):
-        """
-        Dismiss the given alert dialog.
-        """
-        with allure.step("Dismiss alert"):
-            dialog.dismiss()
+    def click_and_dismiss(page: Page, trigger: Callable) -> Dialog:
+        """Click trigger(), dismiss the resulting dialog, and return it for message inspection."""
+        captured = []
 
-    @staticmethod
-    def setup_alert_listener(page: Page, action: str = 'accept'):
-        """
-        Set up a listener for alert dialogs.
-        action: 'accept' or 'dismiss'
-        Returns the handler function so it can be removed later with page.off('dialog', handler)
-        """
-        def handler(dialog):
-            if action.lower() == 'accept':
-                AlertHandler.accept_alert(dialog)
-            elif action.lower() == 'dismiss':
-                AlertHandler.dismiss_alert(dialog)
-            else:
-                raise ValueError("Action must be 'accept' or 'dismiss'")
+        def handle(d: Dialog) -> None:
+            captured.append(d)
+            d.dismiss()
 
-        page.on('dialog', handler)
-        return handler
-    
+        page.once("dialog", handle)
+        trigger()
+        return captured[0]

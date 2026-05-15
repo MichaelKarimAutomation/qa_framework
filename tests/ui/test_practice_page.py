@@ -1,7 +1,6 @@
 import pytest
 import allure
 from pom.practice_page import PracticePage
-from pom.alerts import AlertHandler
 
 
 @allure.feature("UI Testing")
@@ -67,7 +66,6 @@ def test_practice_page_interactions(page, practice_url):
 
         alert_dialog = practice.click_alert_and_return_dialog()
         assert alert_dialog.message == "Hello , share this practice page and share your knowledge"
-        AlertHandler.accept_alert(alert_dialog)
 
         practice.click_confirm()
 

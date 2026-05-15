@@ -98,9 +98,10 @@ class PracticePage:
 
     def click_alert_and_return_dialog(self) -> Dialog:
         with allure.step("Click switch to alert example"):
-            with self.page.expect_event("dialog") as dialog_info:
-                self.page.locator("input[value='Alert']").click(no_wait_after=True)
-            return dialog_info.value
+            return AlertHandler.click_and_accept(
+                self.page,
+                lambda: self.page.locator("input[value='Alert']").click()
+            )
 
     def click_confirm(self):
         with allure.step("Click confirm example"):
