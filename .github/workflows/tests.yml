@@ -26,12 +26,16 @@ jobs:
       - name: Install Playwright browsers
         run: uv run playwright install --with-deps chromium
 
+      - name: Create .env file
+        run: |
+          cat > .env <<EOF
+          TODOMVC_URL=${{ secrets.TODOMVC_URL }}
+          JSONPLACEHOLDER_URL=${{ secrets.JSONPLACEHOLDER_URL }}
+          SELENIUM_PRACTISE_URL=${{ secrets.SELENIUM_PRACTISE_URL }}
+          SELENIUM_PRACTICE2_URL=${{ secrets.SELENIUM_PRACTICE2_URL }}
+          EOF
+
       - name: Run tests
-        env:
-          TODOMVC_URL: ${{ secrets.TODOMVC_URL }}
-          JSONPLACEHOLDER_URL: ${{ secrets.JSONPLACEHOLDER_URL }}
-          SELENIUM_PRACTISE_URL: ${{ secrets.SELENIUM_PRACTISE_URL }}
-          SELENIUM_PRACTICE2_URL: ${{ secrets.SELENIUM_PRACTICE2_URL }}
         run: uv run pytest tests/ -v
 
       - name: Upload Allure results
