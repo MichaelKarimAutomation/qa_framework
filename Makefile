@@ -8,13 +8,13 @@ clean: # Delete generated reports
 	python scripts/delete_reports.py
 
 test: # Run full test suite after deleting reports folder
-	python scripts/delete_reports.py & pytest tests/ -v --env=uat
+	python scripts/delete_reports.py & pytest tests/ -v
 
 smoke: # Run smoke-tagged tests only
-	pytest tests/ -v -m smoke --env=uat
+	pytest tests/ -v -m smoke
 
 parallel: # Run full test suite in parallel
-	pytest tests/ -v -n auto --env=uat
+	pytest tests/ -v -n auto
 
 lint: # Check code style with ruff
 	ruff check .

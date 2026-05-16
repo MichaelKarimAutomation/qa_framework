@@ -6,20 +6,10 @@ on:
   pull_request:
     branches: [master]
   workflow_dispatch:
-    inputs:
-      env:
-        description: 'Environment to run against'
-        required: true
-        default: 'dev_env'
-        type: choice
-        options:
-          - uat_env
-          - dev_env
 
 jobs:
   example_test:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.env || 'dev_env' }}
     permissions:
       contents: write
 
@@ -42,7 +32,7 @@ jobs:
           JSONPLACEHOLDER_URL: ${{ secrets.JSONPLACEHOLDER_URL }}
           SELENIUM_PRACTISE_URL: ${{ secrets.SELENIUM_PRACTISE_URL }}
           SELENIUM_PRACTICE2_URL: ${{ secrets.SELENIUM_PRACTICE2_URL }}
-        run: uv run pytest tests/ -v --env=${{ inputs.env || 'dev_env' }}
+        run: uv run pytest tests/ -v
 
       - name: Upload Allure results
         uses: actions/upload-artifact@v4
@@ -58,11 +48,11 @@ jobs:
           tar -zxvf allure.tgz
           sudo mv allure-2.32.0 /opt/allure
           echo "/opt/allure/bin" >> $GITHUB_PATH
-      
+
       - name: generate Allure Report
         if: always()
         run: uv run allure generate reports/allure-results --clean -o reports/allure-report
-      
+
       - name: Deploy to GitHub Pages
         if: always()
         uses: peaceiris/actions-gh-pages@v3

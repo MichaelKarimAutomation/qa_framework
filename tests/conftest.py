@@ -32,13 +32,20 @@ def api_client():
     client.close()
 
 
-def pytest_addoption(parser):
-    parser.addoption('--env', default='uat', help='Environment to run tests against')
-
-
 def pytest_configure(config):
-    env = config.getoption('--env', default='uat')
-    env_file = f'.env.{env}'
     from dotenv import load_dotenv
+    from pathlib import Path
 
-    load_dotenv(env_file, override=True)
+    load_dotenv('.env', override=True)
+
+    missing = []
+    for line in Path('.env.example').read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        key, _, value = line.partition('=')
+        if value and not os.getenv(key):
+            missing.append(key)
+
+    if missing:
+        raise RuntimeError(f"Missing required env vars (see .env.example): {', '.join(missing)}")
