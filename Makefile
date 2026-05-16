@@ -7,7 +7,7 @@ report: # Serve Allure test report in browser
 clean: # Delete generated reports
 	python scripts/delete_reports.py
 
-test: # Clean reports and run full test suite
+test: # Run full test suite after deleting reports folder
 	python scripts/delete_reports.py & pytest tests/ -v --env=uat
 
 smoke: # Run smoke-tagged tests only
