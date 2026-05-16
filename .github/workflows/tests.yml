@@ -57,6 +57,10 @@ jobs:
         if: always()
         run: uv run allure generate reports/allure-results --clean -o reports/allure-report
 
+      - name: Strip Playwright traces from public report
+        if: always()
+        run: find reports/allure-report -name '*.zip' -type f -delete
+
       - name: Deploy to GitHub Pages
         if: always()
         uses: peaceiris/actions-gh-pages@v3
