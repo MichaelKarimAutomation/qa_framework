@@ -1,27 +1,29 @@
-report:
+help: # List all available commands
+	python scripts/help.py
+
+report: # Serve Allure test report in browser
 	allure serve reports/allure-results
 
-clean:
+clean: # Delete generated reports
 	python scripts/delete_reports.py
 
-test:
+test: # Clean reports and run full test suite
 	python scripts/delete_reports.py & pytest tests/ -v --env=uat
 
-smoke:
+smoke: # Run smoke-tagged tests only
 	pytest tests/ -v -m smoke --env=uat
 
-parallel:
+parallel: # Run full test suite in parallel
 	pytest tests/ -v -n auto --env=uat
 
-lint:
+lint: # Check code style with ruff
 	ruff check .
 
-format:
+format: # Auto-format code with ruff
 	ruff format .
 
-docker-build:
+docker-build: # Build the Docker image
 	docker build -t qa-framework .
 
-docker-run:
+docker-run: # Run the Docker container with .env vars
 	docker run --rm --env-file .env qa-framework
-	
