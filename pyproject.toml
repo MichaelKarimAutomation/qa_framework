@@ -26,7 +26,7 @@ dependencies = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-reruns = 2
+reruns = 0
 reruns_delay = 1
 addopts = "--alluredir=reports/allure-results --tracing=retain-on-failure"
 markers = [
@@ -38,3 +38,6 @@ markers = [
 
 [tool.ruff]
 line-length = 150
+
+[tool.ruff.format]
+quote-style = "single"

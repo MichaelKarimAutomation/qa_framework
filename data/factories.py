@@ -19,4 +19,4 @@ class UserFactory(factory.Factory):
 
     name = factory.LazyFunction(fake.name)
     email = factory.LazyFunction(fake.email)
-    username = factory.LazyAttribute(lambda obj: obj.email.split("@")[0])
+    username = factory.LazyAttribute(lambda obj: obj.email.split('@')[0])
