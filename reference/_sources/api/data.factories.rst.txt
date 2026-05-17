@@ -1,0 +1,7 @@
+data.factories module
+=====================
+
+.. automodule:: data.factories
+   :members:
+   :show-inheritance:
+   :undoc-members:

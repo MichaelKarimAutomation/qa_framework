@@ -1,0 +1,15 @@
+tests.ui namespace
+==================
+
+.. py:module:: tests.ui
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   tests.ui.conftest
+   tests.ui.test_grocery_mock
+   tests.ui.test_practice_page
+   tests.ui.test_todo

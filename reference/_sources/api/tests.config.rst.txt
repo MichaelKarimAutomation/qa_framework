@@ -1,0 +1,12 @@
+tests.config namespace
+======================
+
+.. py:module:: tests.config
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   tests.config.test_env_vars

@@ -1,0 +1,14 @@
+tests.api namespace
+===================
+
+.. py:module:: tests.api
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   tests.api.test_contracts
+   tests.api.test_mocking
+   tests.api.test_posts

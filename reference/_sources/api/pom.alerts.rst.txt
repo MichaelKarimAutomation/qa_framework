@@ -1,0 +1,7 @@
+pom.alerts module
+=================
+
+.. automodule:: pom.alerts
+   :members:
+   :show-inheritance:
+   :undoc-members:

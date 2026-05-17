@@ -1,0 +1,112 @@
+Makefile
+========
+
+Auto-generated reference for the project ``Makefile``. Run any target with ``make <target>``.
+
+``make help``
+-------------
+
+List all available commands
+
+.. code-block:: shell
+
+   python scripts/help.py
+
+``make report``
+---------------
+
+Serve Allure test report in browser
+
+.. code-block:: shell
+
+   allure serve reports/allure-results
+
+``make clean``
+--------------
+
+Delete generated reports
+
+.. code-block:: shell
+
+   python scripts/delete_reports.py
+
+``make docs``
+-------------
+
+Generate HTML API documentation under docs/_build/html
+
+.. code-block:: shell
+
+   python scripts/generate_docs.py
+
+``make test``
+-------------
+
+Run full test suite after deleting reports folder
+
+.. code-block:: shell
+
+   python scripts/delete_reports.py & pytest tests/ -v
+
+``make smoke``
+--------------
+
+Run smoke-tagged tests only
+
+.. code-block:: shell
+
+   pytest tests/ -v -m smoke
+
+``make regression``
+-------------------
+
+Run regression-tagged tests only
+
+.. code-block:: shell
+
+   pytest tests/ -v -m regression
+
+``make parallel``
+-----------------
+
+Run full test suite in parallel
+
+.. code-block:: shell
+
+   pytest tests/ -v -n auto
+
+``make lint``
+-------------
+
+Check code style with ruff
+
+.. code-block:: shell
+
+   ruff check .
+
+``make format``
+---------------
+
+Auto-format code with ruff
+
+.. code-block:: shell
+
+   ruff format .
+
+``make docker-build``
+---------------------
+
+Build the Docker image
+
+.. code-block:: shell
+
+   docker build -t qa-framework .
+
+``make docker-run``
+-------------------
+
+Run the Docker container with .env vars
+
+.. code-block:: shell
+
+   docker run --rm --env-file .env qa-framework

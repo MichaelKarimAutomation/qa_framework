@@ -1,0 +1,7 @@
+pom.practice\_page module
+=========================
+
+.. automodule:: pom.practice_page
+   :members:
+   :show-inheritance:
+   :undoc-members:

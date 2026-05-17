@@ -1,0 +1,7 @@
+pom.grocery\_page module
+========================
+
+.. automodule:: pom.grocery_page
+   :members:
+   :show-inheritance:
+   :undoc-members:

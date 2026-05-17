@@ -1,0 +1,214 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Makefile &mdash; qa-framework 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="performance.rahulshetty module" href="performance.rahulshetty.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            qa-framework
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pom.html">pom namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">utils namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data.html">data namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">tests namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">performance namespace</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Makefile</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#make-help"><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">help</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#make-report"><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">report</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#make-clean"><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">clean</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#make-docs"><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">docs</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#make-test"><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">test</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#make-smoke"><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">smoke</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#make-regression"><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">regression</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#make-parallel"><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">parallel</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#make-lint"><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">lint</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#make-format"><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">format</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#make-docker-build"><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">docker-build</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#make-docker-run"><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">docker-run</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">qa-framework</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Makefile</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/makefile.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="makefile">
+<h1>Makefile<a class="headerlink" href="#makefile" title="Link to this heading"></a></h1>
+<p>Auto-generated reference for the project <code class="docutils literal notranslate"><span class="pre">Makefile</span></code>. Run any target with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">&lt;target&gt;</span></code>.</p>
+<section id="make-help">
+<h2><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">help</span></code><a class="headerlink" href="#make-help" title="Link to this heading"></a></h2>
+<p>List all available commands</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/help.py
+</pre></div>
+</div>
+</section>
+<section id="make-report">
+<h2><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">report</span></code><a class="headerlink" href="#make-report" title="Link to this heading"></a></h2>
+<p>Serve Allure test report in browser</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>allure<span class="w"> </span>serve<span class="w"> </span>reports/allure-results
+</pre></div>
+</div>
+</section>
+<section id="make-clean">
+<h2><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">clean</span></code><a class="headerlink" href="#make-clean" title="Link to this heading"></a></h2>
+<p>Delete generated reports</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/delete_reports.py
+</pre></div>
+</div>
+</section>
+<section id="make-docs">
+<h2><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">docs</span></code><a class="headerlink" href="#make-docs" title="Link to this heading"></a></h2>
+<p>Generate HTML API documentation under docs/_build/html</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/generate_docs.py
+</pre></div>
+</div>
+</section>
+<section id="make-test">
+<h2><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">test</span></code><a class="headerlink" href="#make-test" title="Link to this heading"></a></h2>
+<p>Run full test suite after deleting reports folder</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/delete_reports.py<span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>pytest<span class="w"> </span>tests/<span class="w"> </span>-v
+</pre></div>
+</div>
+</section>
+<section id="make-smoke">
+<h2><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">smoke</span></code><a class="headerlink" href="#make-smoke" title="Link to this heading"></a></h2>
+<p>Run smoke-tagged tests only</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>tests/<span class="w"> </span>-v<span class="w"> </span>-m<span class="w"> </span>smoke
+</pre></div>
+</div>
+</section>
+<section id="make-regression">
+<h2><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">regression</span></code><a class="headerlink" href="#make-regression" title="Link to this heading"></a></h2>
+<p>Run regression-tagged tests only</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>tests/<span class="w"> </span>-v<span class="w"> </span>-m<span class="w"> </span>regression
+</pre></div>
+</div>
+</section>
+<section id="make-parallel">
+<h2><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">parallel</span></code><a class="headerlink" href="#make-parallel" title="Link to this heading"></a></h2>
+<p>Run full test suite in parallel</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>tests/<span class="w"> </span>-v<span class="w"> </span>-n<span class="w"> </span>auto
+</pre></div>
+</div>
+</section>
+<section id="make-lint">
+<h2><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">lint</span></code><a class="headerlink" href="#make-lint" title="Link to this heading"></a></h2>
+<p>Check code style with ruff</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>ruff<span class="w"> </span>check<span class="w"> </span>.
+</pre></div>
+</div>
+</section>
+<section id="make-format">
+<h2><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">format</span></code><a class="headerlink" href="#make-format" title="Link to this heading"></a></h2>
+<p>Auto-format code with ruff</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>ruff<span class="w"> </span>format<span class="w"> </span>.
+</pre></div>
+</div>
+</section>
+<section id="make-docker-build">
+<h2><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">docker-build</span></code><a class="headerlink" href="#make-docker-build" title="Link to this heading"></a></h2>
+<p>Build the Docker image</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>qa-framework<span class="w"> </span>.
+</pre></div>
+</div>
+</section>
+<section id="make-docker-run">
+<h2><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">docker-run</span></code><a class="headerlink" href="#make-docker-run" title="Link to this heading"></a></h2>
+<p>Run the Docker container with .env vars</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>qa-framework
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="performance.rahulshetty.html" class="btn btn-neutral float-left" title="performance.rahulshetty module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright .</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

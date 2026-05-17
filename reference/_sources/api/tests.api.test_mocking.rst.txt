@@ -1,0 +1,7 @@
+tests.api.test\_mocking module
+==============================
+
+.. automodule:: tests.api.test_mocking
+   :members:
+   :show-inheritance:
+   :undoc-members:

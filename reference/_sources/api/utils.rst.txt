@@ -1,0 +1,12 @@
+utils namespace
+===============
+
+.. py:module:: utils
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   utils.api_client

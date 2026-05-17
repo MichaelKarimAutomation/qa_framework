@@ -1,0 +1,7 @@
+performance.jsonplaceholder module
+==================================
+
+.. automodule:: performance.jsonplaceholder
+   :members:
+   :show-inheritance:
+   :undoc-members:

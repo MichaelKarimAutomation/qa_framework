@@ -1,0 +1,7 @@
+tests.ui.conftest module
+========================
+
+.. automodule:: tests.ui.conftest
+   :members:
+   :show-inheritance:
+   :undoc-members:

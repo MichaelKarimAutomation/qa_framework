@@ -1,0 +1,7 @@
+tests.api.test\_posts module
+============================
+
+.. automodule:: tests.api.test_posts
+   :members:
+   :show-inheritance:
+   :undoc-members:

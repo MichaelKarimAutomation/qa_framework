@@ -1,0 +1,348 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pom.practice_page &mdash; qa-framework 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            qa-framework
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/pom.html">pom namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/utils.html">utils namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/data.html">data namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/tests.html">tests namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/performance.html">performance namespace</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/makefile.html">Makefile</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">qa-framework</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">pom.practice_page</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for pom.practice_page</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">allure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">playwright.sync_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">Page</span><span class="p">,</span> <span class="n">Dialog</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pom.alerts</span><span class="w"> </span><span class="kn">import</span> <span class="n">AlertHandler</span>
+
+
+<div class="viewcode-block" id="PracticePage">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PracticePage</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">page</span><span class="p">:</span> <span class="n">Page</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the practice page wrapper and define locators for its static UI elements.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">page</span> <span class="o">=</span> <span class="n">page</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">suggestion_items</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="s1">&#39;.ui-menu-item&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropdown_selected_option</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="s1">&#39;#dropdown-class-example option:checked&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">open_window_button</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="s1">&#39;#openwindow&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">open_tab_button</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="s1">&#39;#opentab&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alert_button</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="s2">&quot;input[value=&#39;Alert&#39;]&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">confirm_button</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="s2">&quot;input[value=&#39;Confirm&#39;]&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hide_button</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="s1">&#39;#hide-textbox&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">show_button</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="s1">&#39;#show-textbox&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">displayed_textbox</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="s1">&#39;#displayed-text&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mouse_hover_trigger</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="s1">&#39;#mousehover&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">top_hover_option</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="s2">&quot;.mouse-hover-content a[href=&#39;#top&#39;]&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reload_hover_option</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="s2">&quot;.mouse-hover-content a[href=&#39;&#39;]&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">courses_iframe</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">frame_locator</span><span class="p">(</span><span class="s1">&#39;#courses-iframe&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PracticePage.navigate">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.navigate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">navigate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Open the practice page at the given URL in the browser.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">page</span><span class="o">.</span><span class="n">goto</span><span class="p">(</span><span class="n">url</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.click_radio_button_example">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.click_radio_button_example">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">click_radio_button_example</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">option_label</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Click radio button 1, 2, or 3 in the radio example (label may be int or string containing the digit).&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s1">&#39;1&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">option_label</span><span class="p">):</span>
+            <span class="n">radio_value</span> <span class="o">=</span> <span class="s1">&#39;radio1&#39;</span>
+        <span class="k">elif</span> <span class="s1">&#39;2&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">option_label</span><span class="p">):</span>
+            <span class="n">radio_value</span> <span class="o">=</span> <span class="s1">&#39;radio2&#39;</span>
+        <span class="k">elif</span> <span class="s1">&#39;3&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">option_label</span><span class="p">):</span>
+            <span class="n">radio_value</span> <span class="o">=</span> <span class="s1">&#39;radio3&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Invalid radio button label.&#39;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Click radio button example&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;input[value=&#39;</span><span class="si">{</span><span class="n">radio_value</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">click</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.get_radio_button_example_status">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.get_radio_button_example_status">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_radio_button_example_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">option_label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if the radio button identified by label 1, 2, or 3 is currently selected.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s1">&#39;1&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">option_label</span><span class="p">):</span>
+            <span class="n">radio_value</span> <span class="o">=</span> <span class="s1">&#39;radio1&#39;</span>
+        <span class="k">elif</span> <span class="s1">&#39;2&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">option_label</span><span class="p">):</span>
+            <span class="n">radio_value</span> <span class="o">=</span> <span class="s1">&#39;radio2&#39;</span>
+        <span class="k">elif</span> <span class="s1">&#39;3&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">option_label</span><span class="p">):</span>
+            <span class="n">radio_value</span> <span class="o">=</span> <span class="s1">&#39;radio3&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Invalid radio button label.&#39;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Get checked radio button status&#39;</span><span class="p">):</span>
+            <span class="n">radio</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;input[type=&#39;radio&#39;][value=&#39;</span><span class="si">{</span><span class="n">radio_value</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">radio</span><span class="o">.</span><span class="n">is_checked</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.input_suggestion_class_example">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.input_suggestion_class_example">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">input_suggestion_class_example</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Type into the autocomplete input and click the first matching suggestion that appears.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Input text into suggestion class example&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">page</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="s1">&#39;#autocomplete&#39;</span><span class="p">,</span> <span class="n">text</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">page</span><span class="o">.</span><span class="n">wait_for_selector</span><span class="p">(</span><span class="s1">&#39;.ui-menu-item&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">suggestion_items</span><span class="o">.</span><span class="n">first</span><span class="o">.</span><span class="n">click</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.get_suggestion_class_example">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.get_suggestion_class_example">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_suggestion_class_example</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the current text value of the autocomplete input field.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Get suggestion class example text&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">page</span><span class="o">.</span><span class="n">input_value</span><span class="p">(</span><span class="s1">&#39;#autocomplete&#39;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.select_dropdown_example">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.select_dropdown_example">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">select_dropdown_example</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Select an option in the dropdown example by its label or value.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Select dropdown option by Label|Value&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">page</span><span class="o">.</span><span class="n">select_option</span><span class="p">(</span><span class="s1">&#39;#dropdown-class-example&#39;</span><span class="p">,</span> <span class="n">text</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.get_dropdown_example_selected_option">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.get_dropdown_example_selected_option">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_dropdown_example_selected_option</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the visible text of the option currently selected in the dropdown example.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Get selected dropdown option&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropdown_selected_option</span><span class="o">.</span><span class="n">inner_text</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.check_checkbox_example_by_value">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.check_checkbox_example_by_value">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_checkbox_example_by_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkbox_value</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">check</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check or uncheck checkbox 1, 2, or 3 in the checkbox example based on the `check` flag.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s1">&#39;1&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">checkbox_value</span><span class="p">):</span>
+            <span class="n">checkbox_value</span> <span class="o">=</span> <span class="s1">&#39;option1&#39;</span>
+        <span class="k">elif</span> <span class="s1">&#39;2&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">checkbox_value</span><span class="p">):</span>
+            <span class="n">checkbox_value</span> <span class="o">=</span> <span class="s1">&#39;option2&#39;</span>
+        <span class="k">elif</span> <span class="s1">&#39;3&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">checkbox_value</span><span class="p">):</span>
+            <span class="n">checkbox_value</span> <span class="o">=</span> <span class="s1">&#39;option3&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Invalid checkbox value.&#39;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Check checkbox example&#39;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">check</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;input[type=&#39;checkbox&#39;][value=&#39;</span><span class="si">{</span><span class="n">checkbox_value</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">check</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;input[type=&#39;checkbox&#39;][value=&#39;</span><span class="si">{</span><span class="n">checkbox_value</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">uncheck</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.get_checkbox_example_checked_status">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.get_checkbox_example_checked_status">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_checkbox_example_checked_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkbox_value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if the checkbox identified by value 1, 2, or 3 is currently checked.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s1">&#39;1&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">checkbox_value</span><span class="p">):</span>
+            <span class="n">checkbox_value</span> <span class="o">=</span> <span class="s1">&#39;option1&#39;</span>
+        <span class="k">elif</span> <span class="s1">&#39;2&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">checkbox_value</span><span class="p">):</span>
+            <span class="n">checkbox_value</span> <span class="o">=</span> <span class="s1">&#39;option2&#39;</span>
+        <span class="k">elif</span> <span class="s1">&#39;3&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">checkbox_value</span><span class="p">):</span>
+            <span class="n">checkbox_value</span> <span class="o">=</span> <span class="s1">&#39;option3&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Invalid checkbox value.&#39;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Get checked checkbox status&#39;</span><span class="p">):</span>
+            <span class="n">checkbox</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">page</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;input[type=&#39;checkbox&#39;][value=&#39;</span><span class="si">{</span><span class="n">checkbox_value</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">checkbox</span><span class="o">.</span><span class="n">is_checked</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.click_open_window_and_return_page_instance">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.click_open_window_and_return_page_instance">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">click_open_window_and_return_page_instance</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Click the &#39;Open Window&#39; button and return the Playwright Page object for the popup window.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Click open window and return new window page&#39;</span><span class="p">):</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">page</span><span class="o">.</span><span class="n">expect_popup</span><span class="p">()</span> <span class="k">as</span> <span class="n">popup_info</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">open_window_button</span><span class="o">.</span><span class="n">click</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">popup_info</span><span class="o">.</span><span class="n">value</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.click_open_tab_and_return_page_instance">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.click_open_tab_and_return_page_instance">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">click_open_tab_and_return_page_instance</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Click the &#39;Open Tab&#39; button and return the Playwright Page object for the new browser tab.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Click open tab and return new tab page&#39;</span><span class="p">):</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">page</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">expect_page</span><span class="p">()</span> <span class="k">as</span> <span class="n">new_page_info</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">open_tab_button</span><span class="o">.</span><span class="n">click</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">new_page_info</span><span class="o">.</span><span class="n">value</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.click_alert_and_return_dialog">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.click_alert_and_return_dialog">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">click_alert_and_return_dialog</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dialog</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Click the &#39;Alert&#39; button, accept the resulting JS dialog, and return it for message inspection.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Click switch to alert example&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">AlertHandler</span><span class="o">.</span><span class="n">click_and_accept</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">page</span><span class="p">,</span> <span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">alert_button</span><span class="o">.</span><span class="n">click</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.click_confirm">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.click_confirm">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">click_confirm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Click the &#39;Confirm&#39; button (the caller is responsible for handling the resulting dialog).&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Click confirm example&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">confirm_button</span><span class="o">.</span><span class="n">click</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.click_hide_example">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.click_hide_example">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">click_hide_example</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Click the &#39;Hide&#39; button to hide the displayed textbox in the show/hide example.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Click hide example&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hide_button</span><span class="o">.</span><span class="n">click</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.click_show_example">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.click_show_example">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">click_show_example</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Click the &#39;Show&#39; button to reveal the hidden textbox in the show/hide example.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Click show example&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">show_button</span><span class="o">.</span><span class="n">click</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.get_element_displayed_example_visibility">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.get_element_displayed_example_visibility">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_element_displayed_example_visibility</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if the textbox in the show/hide example is currently visible on the page.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Get element displayed example visibility&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">displayed_textbox</span><span class="o">.</span><span class="n">is_visible</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.hover_mouse_hover_example">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.hover_mouse_hover_example">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hover_mouse_hover_example</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Hover the mouse over the mouse-hover trigger to reveal its dropdown menu.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Hover mouse hover example&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mouse_hover_trigger</span><span class="o">.</span><span class="n">hover</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.click_top_hover_option">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.click_top_hover_option">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">click_top_hover_option</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Click the &#39;Top&#39; link inside the mouse-hover dropdown (anchors back to top of page).&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Click top hover option&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">top_hover_option</span><span class="o">.</span><span class="n">click</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.click_reload_hover_option">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.click_reload_hover_option">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">click_reload_hover_option</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Click the &#39;Reload&#39; link inside the mouse-hover dropdown (reloads the page).&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Click reload hover option&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reload_hover_option</span><span class="o">.</span><span class="n">click</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.switch_to_iframe_example">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.switch_to_iframe_example">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">switch_to_iframe_example</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a FrameLocator pointing at the courses iframe so its contents can be queried.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Switch to iframe example&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">courses_iframe</span></div>
+
+
+<div class="viewcode-block" id="PracticePage.get_iframe_course_name">
+<a class="viewcode-back" href="../../api/pom.practice_page.html#pom.practice_page.PracticePage.get_iframe_course_name">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_iframe_course_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the text of the courses heading inside the iframe, falling back to the first h2 if not found by text.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Get iframe course name&#39;</span><span class="p">):</span>
+            <span class="n">iframe</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">switch_to_iframe_example</span><span class="p">()</span>
+            <span class="n">heading</span> <span class="o">=</span> <span class="n">iframe</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="s1">&#39;h2&#39;</span><span class="p">,</span> <span class="n">has_text</span><span class="o">=</span><span class="s1">&#39;Courses&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">first</span>
+            <span class="k">if</span> <span class="n">heading</span><span class="o">.</span><span class="n">count</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">heading</span> <span class="o">=</span> <span class="n">iframe</span><span class="o">.</span><span class="n">locator</span><span class="p">(</span><span class="s1">&#39;h2&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">first</span>
+            <span class="k">return</span> <span class="n">heading</span><span class="o">.</span><span class="n">inner_text</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright .</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

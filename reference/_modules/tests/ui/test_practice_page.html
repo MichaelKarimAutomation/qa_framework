@@ -1,0 +1,198 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>tests.ui.test_practice_page &mdash; qa-framework 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            qa-framework
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/pom.html">pom namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/utils.html">utils namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/data.html">data namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/tests.html">tests namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/performance.html">performance namespace</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/makefile.html">Makefile</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">qa-framework</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">tests.ui.test_practice_page</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for tests.ui.test_practice_page</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">allure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pom.practice_page</span><span class="w"> </span><span class="kn">import</span> <span class="n">PracticePage</span>
+
+
+<div class="viewcode-block" id="test_practice_page_interactions">
+<a class="viewcode-back" href="../../../api/tests.ui.test_practice_page.html#tests.ui.test_practice_page.test_practice_page_interactions">[docs]</a>
+<span class="nd">@allure</span><span class="o">.</span><span class="n">feature</span><span class="p">(</span><span class="s1">&#39;UI Testing&#39;</span><span class="p">)</span>
+<span class="nd">@allure</span><span class="o">.</span><span class="n">story</span><span class="p">(</span><span class="s1">&#39;Interact with all elements on the practice page&#39;</span><span class="p">)</span>
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">ui</span>
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">regression</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_practice_page_interactions</span><span class="p">(</span><span class="n">page</span><span class="p">,</span> <span class="n">practice_url</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;End-to-end exercise of every interactive widget on rahulshettyacademy&#39;s practice page. Acts as a regression smoke for the full PracticePage POM surface.&quot;&quot;&quot;</span>
+    <span class="n">practice</span> <span class="o">=</span> <span class="n">PracticePage</span><span class="p">(</span><span class="n">page</span><span class="p">)</span>
+    <span class="n">practice</span><span class="o">.</span><span class="n">navigate</span><span class="p">(</span><span class="n">practice_url</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Verify radio button interaction&#39;</span><span class="p">):</span>
+        <span class="n">practice</span><span class="o">.</span><span class="n">click_radio_button_example</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">practice</span><span class="o">.</span><span class="n">click_radio_button_example</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">practice</span><span class="o">.</span><span class="n">click_radio_button_example</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">radio1_status</span> <span class="o">=</span> <span class="n">practice</span><span class="o">.</span><span class="n">get_radio_button_example_status</span><span class="p">(</span><span class="s1">&#39;1&#39;</span><span class="p">)</span>
+        <span class="n">radio2_status</span> <span class="o">=</span> <span class="n">practice</span><span class="o">.</span><span class="n">get_radio_button_example_status</span><span class="p">(</span><span class="s1">&#39;2&#39;</span><span class="p">)</span>
+        <span class="n">radio3_status</span> <span class="o">=</span> <span class="n">practice</span><span class="o">.</span><span class="n">get_radio_button_example_status</span><span class="p">(</span><span class="s1">&#39;3&#39;</span><span class="p">)</span>
+
+        <span class="n">practice</span><span class="o">.</span><span class="n">input_suggestion_class_example</span><span class="p">(</span><span class="s1">&#39;New Zeal&#39;</span><span class="p">)</span>
+        <span class="n">suggestion_text</span> <span class="o">=</span> <span class="n">practice</span><span class="o">.</span><span class="n">get_suggestion_class_example</span><span class="p">()</span>
+
+        <span class="n">practice</span><span class="o">.</span><span class="n">select_dropdown_example</span><span class="p">(</span><span class="s1">&#39;Option2&#39;</span><span class="p">)</span>
+        <span class="n">practice</span><span class="o">.</span><span class="n">select_dropdown_example</span><span class="p">(</span><span class="s1">&#39;Option1&#39;</span><span class="p">)</span>
+        <span class="n">practice</span><span class="o">.</span><span class="n">select_dropdown_example</span><span class="p">(</span><span class="s1">&#39;option3&#39;</span><span class="p">)</span>
+        <span class="n">selected_option</span> <span class="o">=</span> <span class="n">practice</span><span class="o">.</span><span class="n">get_dropdown_example_selected_option</span><span class="p">()</span>
+
+        <span class="n">practice</span><span class="o">.</span><span class="n">check_checkbox_example_by_value</span><span class="p">(</span><span class="s1">&#39;1&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">practice</span><span class="o">.</span><span class="n">check_checkbox_example_by_value</span><span class="p">(</span><span class="s1">&#39;2&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">practice</span><span class="o">.</span><span class="n">check_checkbox_example_by_value</span><span class="p">(</span><span class="s1">&#39;3&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">practice</span><span class="o">.</span><span class="n">check_checkbox_example_by_value</span><span class="p">(</span><span class="s1">&#39;3&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">practice</span><span class="o">.</span><span class="n">check_checkbox_example_by_value</span><span class="p">(</span><span class="s1">&#39;3&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">checked_value1_status</span> <span class="o">=</span> <span class="n">practice</span><span class="o">.</span><span class="n">get_checkbox_example_checked_status</span><span class="p">(</span><span class="s1">&#39;1&#39;</span><span class="p">)</span>
+        <span class="n">checked_value2_status</span> <span class="o">=</span> <span class="n">practice</span><span class="o">.</span><span class="n">get_checkbox_example_checked_status</span><span class="p">(</span><span class="s1">&#39;2&#39;</span><span class="p">)</span>
+        <span class="n">checked_value3_status</span> <span class="o">=</span> <span class="n">practice</span><span class="o">.</span><span class="n">get_checkbox_example_checked_status</span><span class="p">(</span><span class="s1">&#39;3&#39;</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="n">radio1_status</span> <span class="ow">is</span> <span class="kc">True</span>
+        <span class="k">assert</span> <span class="n">radio2_status</span> <span class="ow">is</span> <span class="kc">False</span>
+        <span class="k">assert</span> <span class="n">radio3_status</span> <span class="ow">is</span> <span class="kc">False</span>
+
+        <span class="k">assert</span> <span class="n">suggestion_text</span> <span class="o">==</span> <span class="s1">&#39;New Zealand&#39;</span>
+
+        <span class="k">assert</span> <span class="n">selected_option</span> <span class="o">==</span> <span class="s1">&#39;Option3&#39;</span>
+
+        <span class="k">assert</span> <span class="n">checked_value1_status</span> <span class="ow">is</span> <span class="kc">True</span>
+        <span class="k">assert</span> <span class="n">checked_value2_status</span> <span class="ow">is</span> <span class="kc">False</span>
+        <span class="k">assert</span> <span class="n">checked_value3_status</span> <span class="ow">is</span> <span class="kc">True</span>
+
+        <span class="n">starting_url</span> <span class="o">=</span> <span class="n">practice</span><span class="o">.</span><span class="n">page</span><span class="o">.</span><span class="n">url</span>
+        <span class="k">assert</span> <span class="mi">1</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">pages</span><span class="p">)</span>
+
+        <span class="n">window_page</span> <span class="o">=</span> <span class="n">practice</span><span class="o">.</span><span class="n">click_open_window_and_return_page_instance</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">starting_url</span> <span class="o">!=</span> <span class="n">window_page</span><span class="o">.</span><span class="n">url</span>
+        <span class="k">assert</span> <span class="mi">2</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">pages</span><span class="p">)</span>
+
+        <span class="n">tab_page</span> <span class="o">=</span> <span class="n">practice</span><span class="o">.</span><span class="n">click_open_tab_and_return_page_instance</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">starting_url</span> <span class="o">!=</span> <span class="n">tab_page</span>
+        <span class="k">assert</span> <span class="mi">3</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">pages</span><span class="p">)</span>
+
+        <span class="n">window_page</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">tab_page</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="k">assert</span> <span class="mi">1</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">pages</span><span class="p">)</span>
+
+        <span class="n">alert_dialog</span> <span class="o">=</span> <span class="n">practice</span><span class="o">.</span><span class="n">click_alert_and_return_dialog</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">alert_dialog</span><span class="o">.</span><span class="n">message</span> <span class="o">==</span> <span class="s1">&#39;Hello , share this practice page and share your knowledge&#39;</span>
+
+        <span class="n">practice</span><span class="o">.</span><span class="n">click_confirm</span><span class="p">()</span>
+
+        <span class="n">practice</span><span class="o">.</span><span class="n">click_hide_example</span><span class="p">()</span>
+        <span class="n">hidden_status</span> <span class="o">=</span> <span class="n">practice</span><span class="o">.</span><span class="n">get_element_displayed_example_visibility</span><span class="p">()</span>
+        <span class="n">practice</span><span class="o">.</span><span class="n">click_show_example</span><span class="p">()</span>
+        <span class="n">shown_status</span> <span class="o">=</span> <span class="n">practice</span><span class="o">.</span><span class="n">get_element_displayed_example_visibility</span><span class="p">()</span>
+
+        <span class="n">practice</span><span class="o">.</span><span class="n">hover_mouse_hover_example</span><span class="p">()</span>
+        <span class="n">practice</span><span class="o">.</span><span class="n">click_top_hover_option</span><span class="p">()</span>
+
+        <span class="n">iframe_course</span> <span class="o">=</span> <span class="n">practice</span><span class="o">.</span><span class="n">get_iframe_course_name</span><span class="p">()</span>
+
+        <span class="k">assert</span> <span class="n">hidden_status</span> <span class="ow">is</span> <span class="kc">False</span>
+        <span class="k">assert</span> <span class="n">shown_status</span> <span class="ow">is</span> <span class="kc">True</span>
+
+        <span class="k">assert</span> <span class="s1">&#39;courses&#39;</span> <span class="ow">in</span> <span class="n">iframe_course</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright .</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

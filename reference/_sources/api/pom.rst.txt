@@ -1,0 +1,15 @@
+pom namespace
+=============
+
+.. py:module:: pom
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   pom.alerts
+   pom.grocery_page
+   pom.practice_page
+   pom.todo_page

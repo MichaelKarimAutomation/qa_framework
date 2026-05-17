@@ -1,0 +1,13 @@
+performance namespace
+=====================
+
+.. py:module:: performance
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   performance.jsonplaceholder
+   performance.rahulshetty

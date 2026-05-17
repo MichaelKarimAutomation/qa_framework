@@ -1,0 +1,7 @@
+tests.ui.test\_grocery\_mock module
+===================================
+
+.. automodule:: tests.ui.test_grocery_mock
+   :members:
+   :show-inheritance:
+   :undoc-members:

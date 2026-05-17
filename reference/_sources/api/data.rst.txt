@@ -1,0 +1,12 @@
+data namespace
+==============
+
+.. py:module:: data
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   data.factories

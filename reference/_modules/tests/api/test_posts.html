@@ -1,0 +1,197 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>tests.api.test_posts &mdash; qa-framework 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            qa-framework
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/pom.html">pom namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/utils.html">utils namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/data.html">data namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/tests.html">tests namespace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/performance.html">performance namespace</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/makefile.html">Makefile</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">qa-framework</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">tests.api.test_posts</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for tests.api.test_posts</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">allure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">data.factories</span><span class="w"> </span><span class="kn">import</span> <span class="n">PostFactory</span><span class="p">,</span> <span class="n">UserFactory</span>
+
+
+<div class="viewcode-block" id="test_get_post">
+<a class="viewcode-back" href="../../../api/tests.api.test_posts.html#tests.api.test_posts.test_get_post">[docs]</a>
+<span class="nd">@allure</span><span class="o">.</span><span class="n">feature</span><span class="p">(</span><span class="s1">&#39;API Tests&#39;</span><span class="p">)</span>
+<span class="nd">@allure</span><span class="o">.</span><span class="n">story</span><span class="p">(</span><span class="s1">&#39;Get Post&#39;</span><span class="p">)</span>
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">api</span>
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">smoke</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_get_post</span><span class="p">(</span><span class="n">api_client</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Smoke check the JSONPlaceholder API: GET /posts/1 returns 200 and the body&#39;s `id` matches the requested id. Acts as the canary that the API base URL and api_client fixture are wired up correctly.&quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Send GET request for post 1&#39;</span><span class="p">):</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">api_client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;/posts/1&#39;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Verify response status and id&#39;</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span>
+        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span></div>
+
+
+
+<div class="viewcode-block" id="test_create_post">
+<a class="viewcode-back" href="../../../api/tests.api.test_posts.html#tests.api.test_posts.test_create_post">[docs]</a>
+<span class="nd">@allure</span><span class="o">.</span><span class="n">feature</span><span class="p">(</span><span class="s1">&#39;API Tests&#39;</span><span class="p">)</span>
+<span class="nd">@allure</span><span class="o">.</span><span class="n">story</span><span class="p">(</span><span class="s1">&#39;Create Post&#39;</span><span class="p">)</span>
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">api</span>
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">regression</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_create_post</span><span class="p">(</span><span class="n">api_client</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;POST a hardcoded post payload to /posts and assert the API echoes back 201 plus the same title. Confirms the create-post happy path with a literal payload (no factory).&quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Create POST request for posts&#39;</span><span class="p">):</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;title&#39;</span><span class="p">:</span> <span class="s1">&#39;My Post&#39;</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">:</span> <span class="s1">&#39;Hello world&#39;</span><span class="p">,</span> <span class="s1">&#39;userId&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">api_client</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s1">&#39;/posts&#39;</span><span class="p">,</span> <span class="n">payload</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Verify response satus and title&#39;</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">201</span>
+        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()[</span><span class="s1">&#39;title&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;My Post&#39;</span></div>
+
+
+
+<div class="viewcode-block" id="test_create_post_with_factory">
+<a class="viewcode-back" href="../../../api/tests.api.test_posts.html#tests.api.test_posts.test_create_post_with_factory">[docs]</a>
+<span class="nd">@allure</span><span class="o">.</span><span class="n">feature</span><span class="p">(</span><span class="s1">&#39;API Tests&#39;</span><span class="p">)</span>
+<span class="nd">@allure</span><span class="o">.</span><span class="n">story</span><span class="p">(</span><span class="s1">&#39;Get Post with Factory&#39;</span><span class="p">)</span>
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">api</span>
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">regression</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_create_post_with_factory</span><span class="p">(</span><span class="n">api_client</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Same create-post path as test_create_post, but the payload comes from PostFactory so the test runs against randomized realistic data. Catches schema or validation rules that only fail on certain inputs.&quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Create POST using Factory for posts&#39;</span><span class="p">):</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">PostFactory</span><span class="p">()</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">api_client</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s1">&#39;/posts&#39;</span><span class="p">,</span> <span class="n">payload</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Verify response satus and title&#39;</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">201</span>
+        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()[</span><span class="s1">&#39;title&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">payload</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="test_create_user_with_factory">
+<a class="viewcode-back" href="../../../api/tests.api.test_posts.html#tests.api.test_posts.test_create_user_with_factory">[docs]</a>
+<span class="nd">@allure</span><span class="o">.</span><span class="n">feature</span><span class="p">(</span><span class="s1">&#39;API Tests&#39;</span><span class="p">)</span>
+<span class="nd">@allure</span><span class="o">.</span><span class="n">story</span><span class="p">(</span><span class="s1">&#39;Create User with Factory&#39;</span><span class="p">)</span>
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">api</span>
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">regression</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_create_user_with_factory</span><span class="p">(</span><span class="n">api_client</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate a user payload from UserFactory, POST it to /users, and assert the email round-trips back unchanged. Exercises the user-create endpoint with factory-generated input.&quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Generate user data&#39;</span><span class="p">):</span>
+        <span class="n">user</span> <span class="o">=</span> <span class="n">UserFactory</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Send POST request&#39;</span><span class="p">):</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">api_client</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s1">&#39;/users&#39;</span><span class="p">,</span> <span class="n">user</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Verify response&#39;</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">201</span>
+        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()[</span><span class="s1">&#39;email&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">user</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="test_get_multiple_posts">
+<a class="viewcode-back" href="../../../api/tests.api.test_posts.html#tests.api.test_posts.test_get_multiple_posts">[docs]</a>
+<span class="nd">@allure</span><span class="o">.</span><span class="n">feature</span><span class="p">(</span><span class="s1">&#39;API Tests&#39;</span><span class="p">)</span>
+<span class="nd">@allure</span><span class="o">.</span><span class="n">story</span><span class="p">(</span><span class="s1">&#39;Get Post&#39;</span><span class="p">)</span>
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">api</span>
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">regression</span>
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">parametrize</span><span class="p">(</span><span class="s1">&#39;post_id&#39;</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_get_multiple_posts</span><span class="p">(</span><span class="n">api_client</span><span class="p">,</span> <span class="n">post_id</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parametrized smoke across posts 1, 2, and 3: each GET /posts/&lt;id&gt; returns 200 with a matching id in the body. Confirms GET-by-id works for more than just the canary post used in test_get_post.&quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Send GET request for post </span><span class="si">{</span><span class="n">post_id</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">):</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">api_client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;/posts/</span><span class="si">{</span><span class="n">post_id</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">allure</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="s1">&#39;Verify response&#39;</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span>
+        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">post_id</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright .</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,7 @@
+tests.api.test\_contracts module
+================================
+
+.. automodule:: tests.api.test_contracts
+   :members:
+   :show-inheritance:
+   :undoc-members:

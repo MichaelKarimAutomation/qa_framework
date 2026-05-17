@@ -1,0 +1,7 @@
+tests.ui.test\_practice\_page module
+====================================
+
+.. automodule:: tests.ui.test_practice_page
+   :members:
+   :show-inheritance:
+   :undoc-members:
