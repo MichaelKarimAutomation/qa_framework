@@ -1,3 +1,5 @@
+.PHONY: help report clean docs test smoke regression parallel lint format docker-build docker-run
+
 help: # List all available commands
 	python scripts/help.py
 
@@ -6,6 +8,9 @@ report: # Serve Allure test report in browser
 
 clean: # Delete generated reports
 	python scripts/delete_reports.py
+
+docs: # Generate HTML API documentation under docs/_build/html
+	python scripts/generate_docs.py
 
 test: # Run full test suite after deleting reports folder
 	python scripts/delete_reports.py & pytest tests/ -v
