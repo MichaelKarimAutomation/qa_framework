@@ -8,6 +8,82 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Merge gate: enforces AI-Verdict on pipeline-touched branches.
+  # Authoritative pipeline signal = task folder presence. Branch name is
+  # corroborating only and is NEVER sufficient alone to enforce or exempt.
+  ai_merge_gate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run AI merge gate
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -e
+
+          # --- 1. Detect pipeline involvement (authoritative: task folder) ---
+          PIPELINE_TOUCHED=false
+          if git log "$BASE_SHA".."$HEAD_SHA" --name-only --pretty=format: \
+               | grep -E '^ai_coding/(active|archive|quarantine)/[^/]+/' -q; then
+            PIPELINE_TOUCHED=true
+          fi
+
+          # Corroborating-only: branch name pattern (NOT authoritative).
+          BRANCH_LOOKS_PIPELINE=false
+          case "$HEAD_REF" in
+            feature/*|fix/*|task/*) BRANCH_LOOKS_PIPELINE=true ;;
+          esac
+
+          # --- 2. Resolve ambiguity (folder wins) ---
+          if [ "$PIPELINE_TOUCHED" = "false" ] && [ "$BRANCH_LOOKS_PIPELINE" = "true" ]; then
+            echo "::warning::Branch name suggests pipeline but no task folder found on $HEAD_REF — review required."
+            echo "Treating as NON-pipeline (folder is the proof)."
+            exit 0
+          fi
+
+          if [ "$PIPELINE_TOUCHED" = "false" ]; then
+            echo "Non-pipeline branch. AI merge gate does not apply. Normal human review."
+            exit 0
+          fi
+
+          # --- 3. Pipeline-touched: a valid passing trailer is REQUIRED ---
+          FAIL=false
+          for SHA in $(git rev-list "$BASE_SHA".."$HEAD_SHA"); do
+            MSG="$(git log -1 --format=%B "$SHA")"
+            VERDICT="$(printf '%s\n' "$MSG" | grep -E '^AI-Verdict:' | head -1 | sed 's/^AI-Verdict:[[:space:]]*//')"
+            TASK="$(printf '%s\n' "$MSG" | grep -E '^AI-Task:' | head -1)"
+
+            if [ -z "$VERDICT" ] || [ -z "$TASK" ]; then
+              echo "::error::commit $SHA on a pipeline branch is missing AI-Verdict/AI-Task trailer."
+              FAIL=true
+              continue
+            fi
+            case "$VERDICT" in
+              PASS)
+                echo "OK: $SHA AI-Verdict: PASS" ;;
+              CAP_REACHED|OVERRIDE)
+                echo "::error::$SHA AI-Verdict: $VERDICT — unresolved, must be cleared before merge."
+                FAIL=true ;;
+              *)
+                echo "::error::$SHA has malformed AI-Verdict: '$VERDICT'."
+                FAIL=true ;;
+            esac
+          done
+
+          if [ "$FAIL" = "true" ]; then
+            echo "::error::Merge gate FAILED. Resolve flagged commits or clear them deliberately."
+            exit 1
+          fi
+          echo "Merge gate PASSED."
+
   example_test:
     runs-on: ubuntu-latest
     permissions:

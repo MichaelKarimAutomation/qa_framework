@@ -12,6 +12,7 @@ dependencies = [
     "jsonschema>=4.26.0",
     "locust>=2.43.4",
     "playwright>=1.58.0",
+    "plyer>=2.1.0",
     "psycopg2-binary>=2.9.11",
     "pytest>=9.0.3",
     "pytest-dotenv>=0.5.2",

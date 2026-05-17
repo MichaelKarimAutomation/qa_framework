@@ -17,3 +17,10 @@ wheels/
 # Reports
 reports/
 test-results/
+
+# AI review pipeline — local-only diagnostics
+# (task folders themselves under ai_coding/active|archive|quarantine ARE
+# committed — they're the merge-gate's authoritative pipeline signal.)
+ai_coding/UNROUTED.log
+ai_coding/notify.log
+ai_coding/**/diff_*_*.patch
