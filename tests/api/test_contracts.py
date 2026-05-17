@@ -21,6 +21,7 @@ POST_SCHEMA = {
 @pytest.mark.api
 @pytest.mark.regression
 def test_get_post_schema(api_client):
+    """Contract test: GET /posts/1 must match POST_SCHEMA exactly (required keys present, types correct, no extra properties). Detects upstream API changes that would silently break clients."""
     with allure.step('GET post 1'):
         response = api_client.get('/posts/1')
     with allure.step('Validate response schema'):
@@ -32,6 +33,7 @@ def test_get_post_schema(api_client):
 @pytest.mark.api
 @pytest.mark.regression
 def test_schema_violation_detected(api_client):
+    """Negative meta-test: validate the real GET /posts/1 response against a deliberately wrong schema (extra required `email` field) and confirm jsonschema raises ValidationError. Proves the schema validator is actually catching mismatches, not silently passing everything."""
     wrong_schema = {
         'type': 'object',
         'required': ['id', 'title', 'body', 'userId', 'email'],
@@ -106,6 +108,7 @@ CONTRACTS = [
 @pytest.mark.regression
 @pytest.mark.parametrize('endpoint,schema', CONTRACTS, ids=[c[0] for c in CONTRACTS])
 def test_response_matches_schema(api_client, endpoint, schema):
+    """Parametrized contract sweep across /posts/1, /users/1, /comments/1, and /todos/1. Each endpoint's live response is validated against its declared schema so any drift in any of the four resources fails its own test case (rather than hiding behind a single combined check)."""
     with allure.step(f'GET {endpoint}'):
         response = api_client.get(endpoint)
     with allure.step('Validate response matches schema'):

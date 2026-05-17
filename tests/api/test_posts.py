@@ -8,6 +8,7 @@ from data.factories import PostFactory, UserFactory
 @pytest.mark.api
 @pytest.mark.smoke
 def test_get_post(api_client):
+    """Smoke check the JSONPlaceholder API: GET /posts/1 returns 200 and the body's `id` matches the requested id. Acts as the canary that the API base URL and api_client fixture are wired up correctly."""
     with allure.step('Send GET request for post 1'):
         response = api_client.get('/posts/1')
     with allure.step('Verify response status and id'):
@@ -20,6 +21,7 @@ def test_get_post(api_client):
 @pytest.mark.api
 @pytest.mark.regression
 def test_create_post(api_client):
+    """POST a hardcoded post payload to /posts and assert the API echoes back 201 plus the same title. Confirms the create-post happy path with a literal payload (no factory)."""
     with allure.step('Create POST request for posts'):
         payload = {'title': 'My Post', 'body': 'Hello world', 'userId': 1}
         response = api_client.post('/posts', payload)
@@ -33,6 +35,7 @@ def test_create_post(api_client):
 @pytest.mark.api
 @pytest.mark.regression
 def test_create_post_with_factory(api_client):
+    """Same create-post path as test_create_post, but the payload comes from PostFactory so the test runs against randomized realistic data. Catches schema or validation rules that only fail on certain inputs."""
     with allure.step('Create POST using Factory for posts'):
         payload = PostFactory()
         response = api_client.post('/posts', payload)
@@ -46,6 +49,7 @@ def test_create_post_with_factory(api_client):
 @pytest.mark.api
 @pytest.mark.regression
 def test_create_user_with_factory(api_client):
+    """Generate a user payload from UserFactory, POST it to /users, and assert the email round-trips back unchanged. Exercises the user-create endpoint with factory-generated input."""
     with allure.step('Generate user data'):
         user = UserFactory()
     with allure.step('Send POST request'):
@@ -61,6 +65,7 @@ def test_create_user_with_factory(api_client):
 @pytest.mark.regression
 @pytest.mark.parametrize('post_id', [1, 2, 3])
 def test_get_multiple_posts(api_client, post_id):
+    """Parametrized smoke across posts 1, 2, and 3: each GET /posts/<id> returns 200 with a matching id in the body. Confirms GET-by-id works for more than just the canary post used in test_get_post."""
     with allure.step(f'Send GET request for post {post_id}'):
         response = api_client.get(f'/posts/{post_id}')
     with allure.step('Verify response'):
