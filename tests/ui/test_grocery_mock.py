@@ -9,6 +9,7 @@ from pom.grocery_page import GroceryPage
 @pytest.mark.ui
 @pytest.mark.regression
 def test_mock_product_list(page, grocery_url):
+    """Verify that intercepting the products.json network request and returning a stubbed two-item payload causes the grocery page to render exactly those two product cards. Confirms the page is driven by the network response, not bundled data."""
     mock_products = [
         {'id': 1, 'name': 'Brocolli - 1 Kg', 'price': 120, 'image': './images/broccoli.jpg', 'category': 'vegetables'},
         {'id': 2, 'name': 'Cauliflower - 1 Kg', 'price': 60, 'image': './images/cauliflower.jpg', 'category': 'vegetables'},
