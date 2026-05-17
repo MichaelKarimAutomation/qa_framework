@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>QA Framework Documentation</title>
+    <style>
+        body {
+          font-family: sans-serif;
+          margin: 20px;
+        }
+        table {
+          border-collapse: collapse;
+          width: 100%;
+        }
+        th, td {
+          padding: 8px 12px;
+          border: 1px solid #ccc;
+        }
+        summary {
+          font-weight: bold;
+          cursor: pointer;
+          padding: 5px 0;
+          background-color: #f0f0f0;
+          border-bottom: 1px solid #ccc;
+        }
+        details {
+          margin: 0.75em 0;
+          border: 1px solid #ccc;
+          border-radius: 5px;
+          padding: 0.4em;
+          margin-left: 20px;
+        }
+    </style>
+</head>
+<body>
+<div>
+    <h1>QA Framework Documentation</h1>
+    <p>This page links to setup guides, test documentation, and references for the libraries used by this framework.</p>
+
+    <h2>Getting Started</h2>
+    <table>
+        <tr>
+            <th>Guide</th>
+            <th>Documentation</th>
+            <th>Description</th>
+        </tr>
+        <tr>
+            <td>Windows Installation</td>
+            <td><a href="docs/installation_guide_windows.html">View</a></td>
+            <td>Step-by-step setup on Windows.</td>
+        </tr>
+        <tr>
+            <td>Docker Installation</td>
+            <td><a href="docs/installation_guide_docker.html">View</a></td>
+            <td>Run the framework in a Docker container.</td>
+        </tr>
+        <tr>
+            <td>Project Structure</td>
+            <td>TODO</td>
+            <td>Overview of folders and where things live.</td>
+        </tr>
+        <tr>
+            <td>Running Tests (Makefile)</td>
+            <td><a href="https://michaelkarimautomation.github.io/qa_framework/reference/api/makefile.html">View</a></td>
+            <td>Available <code>make</code> commands and what they do.</td>
+        </tr>
+    </table>
+
+    <h2>Code Reference</h2>
+    <p>
+        Auto-generated API documentation for every module in <code>pom/</code>,
+        <code>utils/</code>, <code>data/</code>, and <code>tests/</code>.
+        Generated from inline docstrings via Sphinx; rebuilt and deployed
+        automatically by the
+        <code>Build and Deploy Docs</code> GitHub Actions workflow on every
+        push to <code>master</code>. To rebuild locally, run
+        <code>make docs</code>.
+    </p>
+    <table>
+        <tr>
+            <th>Reference</th>
+            <th>Documentation</th>
+            <th>Description</th>
+        </tr>
+        <tr>
+            <td>Sphinx API Reference (hosted)</td>
+            <td><a href="https://michaelkarimautomation.github.io/qa_framework/reference/">View</a></td>
+            <td>Latest reference built from <code>master</code>, hosted on GitHub Pages.</td>
+        </tr>
+        <tr>
+            <td>Sphinx API Reference (local)</td>
+            <td><a href="docs/_build/html/index.html">View</a></td>
+            <td>Local build of the current working tree (run <code>make docs</code> first).</td>
+        </tr>
+    </table>
+
+    <h2>External Library References</h2>
+    <details>
+        <summary>Test Framework &amp; Runners</summary>
+        <table>
+            <tr>
+                <th>Library</th>
+                <th>Documentation</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>pytest</td>
+                <td><a href="https://docs.pytest.org/">View</a></td>
+                <td>The core test framework used throughout this project.</td>
+            </tr>
+            <tr>
+                <td>pytest-xdist</td>
+                <td><a href="https://pytest-xdist.readthedocs.io/">View</a></td>
+                <td>Run tests in parallel across multiple workers.</td>
+            </tr>
+            <tr>
+                <td>pytest-rerunfailures</td>
+                <td><a href="https://github.com/pytest-dev/pytest-rerunfailures">View</a></td>
+                <td>Automatically rerun flaky tests.</td>
+            </tr>
+            <tr>
+                <td>pytest-dotenv</td>
+                <td><a href="https://github.com/quiqua/pytest-dotenv">View</a></td>
+                <td>Loads <code>.env</code> values into the test environment.</td>
+            </tr>
+        </table>
+    </details>
+
+    <details>
+        <summary>UI &amp; Browser Automation</summary>
+        <table>
+            <tr>
+                <th>Library</th>
+                <th>Documentation</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>Playwright</td>
+                <td><a href="https://playwright.dev/python/">View</a></td>
+                <td>Browser automation library used for all UI tests.</td>
+            </tr>
+            <tr>
+                <td>pytest-playwright</td>
+                <td><a href="https://playwright.dev/python/docs/test-runners">View</a></td>
+                <td>Playwright integration with pytest, fixtures, and tracing.</td>
+            </tr>
+        </table>
+    </details>
+
+    <details>
+        <summary>API &amp; Mocking</summary>
+        <table>
+            <tr>
+                <th>Library</th>
+                <th>Documentation</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>httpx</td>
+                <td><a href="https://www.python-httpx.org/">View</a></td>
+                <td>Modern HTTP client used by the API client and tests.</td>
+            </tr>
+            <tr>
+                <td>jsonschema</td>
+                <td><a href="https://python-jsonschema.readthedocs.io/">View</a></td>
+                <td>Validates API responses against JSON schemas in contract tests.</td>
+            </tr>
+            <tr>
+                <td>pytest-httpserver</td>
+                <td><a href="https://pytest-httpserver.readthedocs.io/">View</a></td>
+                <td>Spin up a local HTTP server to mock external APIs in tests.</td>
+            </tr>
+        </table>
+    </details>
+
+    <details>
+        <summary>Test Data &amp; Fixtures</summary>
+        <table>
+            <tr>
+                <th>Library</th>
+                <th>Documentation</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>factory-boy</td>
+                <td><a href="https://factoryboy.readthedocs.io/">View</a></td>
+                <td>Generate test fixtures with consistent, predictable data.</td>
+            </tr>
+            <tr>
+                <td>Faker</td>
+                <td><a href="https://faker.readthedocs.io/">View</a></td>
+                <td>Generates realistic fake data (names, emails, addresses).</td>
+            </tr>
+        </table>
+    </details>
+
+    <details>
+        <summary>Reporting</summary>
+        <table>
+            <tr>
+                <th>Library</th>
+                <th>Documentation</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>Allure</td>
+                <td><a href="https://allurereport.org/docs/">View</a></td>
+                <td>Rich HTML reporting with attachments and step-by-step views.</td>
+            </tr>
+            <tr>
+                <td>allure-pytest</td>
+                <td><a href="https://allurereport.org/docs/pytest/">View</a></td>
+                <td>Pytest plugin that publishes results to Allure.</td>
+            </tr>
+        </table>
+    </details>
+
+    <details>
+        <summary>Performance Testing</summary>
+        <table>
+            <tr>
+                <th>Library</th>
+                <th>Documentation</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>Locust</td>
+                <td><a href="https://docs.locust.io/">View</a></td>
+                <td>Load testing tool used in the <code>performance/</code> directory.</td>
+            </tr>
+        </table>
+    </details>
+
+    <details>
+        <summary>Database &amp; Infrastructure</summary>
+        <table>
+            <tr>
+                <th>Library</th>
+                <th>Documentation</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>SQLAlchemy</td>
+                <td><a href="https://docs.sqlalchemy.org/">View</a></td>
+                <td>ORM for database interactions.</td>
+            </tr>
+            <tr>
+                <td>psycopg2</td>
+                <td><a href="https://www.psycopg.org/docs/">View</a></td>
+                <td>PostgreSQL driver used by SQLAlchemy.</td>
+            </tr>
+            <tr>
+                <td>testcontainers</td>
+                <td><a href="https://testcontainers-python.readthedocs.io/">View</a></td>
+                <td>Spin up disposable Docker containers (e.g. a Postgres DB) for tests.</td>
+            </tr>
+        </table>
+    </details>
+
+    <details>
+        <summary>Tooling</summary>
+        <table>
+            <tr>
+                <th>Tool</th>
+                <th>Documentation</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>ruff</td>
+                <td><a href="https://docs.astral.sh/ruff/">View</a></td>
+                <td>Fast linter and formatter — runs via <code>make lint</code> / <code>make format</code>.</td>
+            </tr>
+            <tr>
+                <td>uv</td>
+                <td><a href="https://docs.astral.sh/uv/">View</a></td>
+                <td>Python package manager used to install dependencies and run tests.</td>
+            </tr>
+        </table>
+    </details>
+</div>
+</body>
+</html>
