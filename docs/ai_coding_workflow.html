@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Coding Workflow — Human Steps</title>
+    <style>
+        body {
+          font-family: sans-serif;
+          margin: 20px;
+          max-width: 900px;
+        }
+        h1 {
+          margin-bottom: 0.2em;
+        }
+        h2 {
+          margin-top: 1.5em;
+          border-bottom: 1px solid #ccc;
+          padding-bottom: 0.2em;
+        }
+        ol.steps > li {
+          margin: 0.6em 0;
+        }
+        code {
+          background: #f4f4f4;
+          padding: 1px 5px;
+          border-radius: 3px;
+          font-size: 0.95em;
+        }
+        pre {
+          background: #f4f4f4;
+          padding: 8px 12px;
+          border-radius: 4px;
+          overflow-x: auto;
+        }
+        summary {
+          font-weight: bold;
+          cursor: pointer;
+          padding: 5px 0;
+          background-color: #f0f0f0;
+          border-bottom: 1px solid #ccc;
+        }
+        details {
+          margin: 0.75em 0;
+          border: 1px solid #ccc;
+          border-radius: 5px;
+          padding: 0.4em;
+          margin-left: 20px;
+        }
+        .note {
+          background: #fff8dc;
+          border-left: 4px solid #e0c060;
+          padding: 8px 12px;
+          margin: 0.75em 0;
+        }
+    </style>
+</head>
+<body>
+<h1>AI Coding Workflow — Human Steps</h1>
+<p class="note">
+    Cut-and-dry walkthrough of <strong>what the human does</strong> when working
+    with Claude Code in this repo. Claude does the rest automatically per
+    <code>CLAUDE.md</code>. If you need the why behind any step, read
+    <a href="../CLAUDE.md"><code>CLAUDE.md</code></a> — that's the operating
+    contract.
+</p>
+
+<h2>Point A → Point B (single feature)</h2>
+<ol class="steps">
+    <li>
+        <strong>Branch from master.</strong>
+        <pre>git checkout master
+git pull
+git checkout -b task/&lt;short-kebab-name&gt;</pre>
+        Use the <code>task/</code> prefix (or <code>feature/</code> /
+        <code>fix/</code>) so the CI merge gate recognizes the branch.
+    </li>
+    <li>
+        <strong>Tell Claude Code what you want.</strong>
+        Just describe the change in plain language. Don't worry about the
+        pipeline plumbing — hooks force Claude to create the task folder,
+        write tests, run pytest, invoke the local reviewer, and commit with
+        the required trailers.
+    </li>
+    <li>
+        <strong>Watch progress in <code>ai_coding/active/&lt;task&gt;/PROGRESS.md</code>.</strong>
+        Claude updates it at meaningful boundaries (inner loop green, after
+        local review, after commit). You don't need to interact with it.
+    </li>
+    <li>
+        <strong>If Claude halts urgently, intervene.</strong>
+        Halt tags appear in <code>disagreements.log</code> in the task folder:
+        <ul>
+            <li><code>[TEST_CAP_REACHED]</code> — tests still failing after 3 fix attempts.</li>
+            <li><code>[FULL_SUITE_FAILED]</code> — a previously-untouched test regressed.</li>
+            <li><code>[CAP_REACHED]</code> — local reviewer kept flagging issues across 2 review iterations.</li>
+        </ul>
+        Read the log, decide what to do (fix it yourself, redirect Claude, abandon).
+    </li>
+    <li>
+        <strong>Push the branch and open the PR.</strong>
+        <pre>git push -u origin task/&lt;name&gt;
+gh pr create --base master</pre>
+        The CI merge gate runs automatically. It allows the PR if every
+        commit on the branch carries valid <code>AI-Verdict:</code> and
+        <code>AI-Task:</code> trailers.
+    </li>
+    <li>
+        <strong>Squash-merge when CI is green.</strong>
+        Standard GitHub squash-and-merge. Delete the branch from the
+        prompt after merge.
+    </li>
+</ol>
+
+<h2>Periodic upkeep</h2>
+<ol class="steps">
+    <li>
+        <strong>Run a deep review before <code>/clear</code>.</strong>
+        Same Claude Code session that just finished a feature is the right
+        place: ask for a deep review. Claude reads every diff, log, and
+        source file, flagging anything that looks off — especially in tasks
+        tagged <code>[CAP_REACHED]</code> or <code>[OVERRIDE]</code>.
+    </li>
+    <li>
+        <strong>Archive reviewed clean-PASS task folders.</strong>
+        After deep review, move <code>ai_coding/active/&lt;task&gt;/</code> with
+        <code>STATUS=PASS</code> to <code>ai_coding/archive/&lt;task&gt;/</code>.
+        Leave <code>[CAP_REACHED]</code> and <code>[OVERRIDE]</code> folders
+        in <code>active/</code> until you handle them manually (or move them
+        to <code>quarantine/</code>).
+    </li>
+    <li>
+        <strong>Then <code>/clear</code> before the next feature.</strong>
+        Clear context, then start the next branch from step 1 above. Do
+        <em>not</em> <code>/clear</code> before the deep review — you'd
+        destroy the context the review depends on.
+    </li>
+</ol>
+
+<h2>What you never have to do</h2>
+<ul>
+    <li>Create the task folder manually — the PreToolUse hook forces it.</li>
+    <li>Remember to add the AI trailers — the commit-msg hook rejects commits without them.</li>
+    <li>Worry about Claude editing files before the folder exists — same hook blocks edits outside <code>ai_coding/active/&lt;task&gt;/</code> until you (or Claude) create the folder.</li>
+    <li>Manually route diffs to task folders — the post-commit hook does it.</li>
+</ul>
+
+<h2>Common edge cases</h2>
+<details>
+    <summary>The CI merge gate failed on my PR</summary>
+    <p>
+        Two causes. (1) A commit on the branch is missing trailers — find
+        the offending SHA in the workflow log, amend or replace that commit.
+        (2) <code>AI-Verdict: CAP_REACHED</code> or <code>OVERRIDE</code>
+        appears on a commit — the gate blocks these so a human reviews them
+        before merge. Decide whether the override is acceptable, then either
+        rewrite history with a passing verdict or merge admin-override.
+    </p>
+</details>
+<details>
+    <summary>I want to work on something small and non-pipeline</summary>
+    <p>
+        Use a branch name that doesn't match <code>feature/*</code>,
+        <code>fix/*</code>, or <code>task/*</code>, and don't touch
+        <code>ai_coding/active|archive|quarantine/</code>. The gate will
+        exit silently and your PR goes through normal review. Note: the
+        PreToolUse hook still blocks Claude from editing source files
+        without a task folder — pass <code>--no-verify</code> on local
+        commits if you want to bypass the commit-msg hook for non-pipeline
+        work too.
+    </p>
+</details>
+<details>
+    <summary>Claude went off the rails / I want to abandon a task</summary>
+    <p>
+        Delete the task folder under <code>ai_coding/active/</code>, reset
+        the branch (<code>git reset --hard origin/master</code>), and start
+        over. The pipeline keeps no global state outside the folder.
+    </p>
+</details>
+</body>
+</html>
