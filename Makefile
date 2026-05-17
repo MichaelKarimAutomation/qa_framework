@@ -13,6 +13,9 @@ test: # Run full test suite after deleting reports folder
 smoke: # Run smoke-tagged tests only
 	pytest tests/ -v -m smoke
 
+regression: # Run regression-tagged tests only
+	pytest tests/ -v -m regression
+
 parallel: # Run full test suite in parallel
 	pytest tests/ -v -n auto
 
