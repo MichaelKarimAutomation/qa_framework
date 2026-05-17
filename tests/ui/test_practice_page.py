@@ -8,6 +8,7 @@ from pom.practice_page import PracticePage
 @pytest.mark.ui
 @pytest.mark.regression
 def test_practice_page_interactions(page, practice_url):
+    """End-to-end exercise of every interactive widget on rahulshettyacademy's practice page. Acts as a regression smoke for the full PracticePage POM surface."""
     practice = PracticePage(page)
     practice.navigate(practice_url)
 

@@ -1,3 +1,9 @@
+"""Print a human-readable listing of every Makefile target along with its inline `#` comment and the shell commands it runs.
+
+Used by `make help` so contributors can discover available commands without
+reading the raw Makefile. Targets without a trailing comment are printed
+header-only.
+"""
 import re
 from pathlib import Path
 
