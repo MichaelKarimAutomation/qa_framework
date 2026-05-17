@@ -1,0 +1,117 @@
+warning: in the working copy of '.git/hooks/commit-msg', LF will be replaced by CRLF the next time Git touches it
+diff --git a/.git/hooks/commit-msg b/.git/hooks/commit-msg
+new file mode 100644
+index 0000000..842a846
+--- /dev/null
++++ b/.git/hooks/commit-msg
+@@ -0,0 +1,68 @@
++#!/usr/bin/env sh
++# commit-msg — enforce CLAUDE.md §7 trailers on every local commit.
++#
++# Rejects commits whose message is missing AI-Verdict: / AI-Task: trailers,
++# or whose AI-Verdict is malformed. Mirrors the CI merge gate in
++# .github/workflows/tests.yml so trailer-omission is caught at `git commit`
++# instead of at PR-merge.
++#
++# Constraints:
++#   * POSIX-sh safe (Git for Windows MSYS bash).
++#   * Skip non-pipeline commits (merges, amends from tooling, fixups) only
++#     when git itself supplies the special-source indicator — never skip
++#     based on branch name alone.
++#   * Exit 0 to accept, non-zero to reject.
++
++set -u
++
++MSG_FILE="$1"
++[ -n "${MSG_FILE:-}" ] && [ -f "$MSG_FILE" ] || exit 0
++
++# git passes a source as $2 for some commit types: "merge", "squash",
++# "commit" (-c/-C/--amend), "template", "message". Skip merge commits —
++# they don't represent pipeline work and shouldn't be gated.
++SRC="${2:-}"
++if [ "$SRC" = "merge" ]; then
++  exit 0
++fi
++
++MSG="$(cat "$MSG_FILE")"
++
++TASK="$(printf '%s\n' "$MSG" | grep -E '^AI-Task:' | head -1 \
++        | sed 's/^AI-Task:[[:space:]]*//' | tr -d '\r')"
++VERDICT="$(printf '%s\n' "$MSG" | grep -E '^AI-Verdict:' | head -1 \
++        | sed 's/^AI-Verdict:[[:space:]]*//' | tr -d '\r')"
++
++FAIL=0
++ERR=""
++
++if [ -z "$TASK" ]; then
++  ERR="${ERR}  - Missing 'AI-Task: <task>' trailer.
++"
++  FAIL=1
++fi
++
++if [ -z "$VERDICT" ]; then
++  ERR="${ERR}  - Missing 'AI-Verdict: PASS|CAP_REACHED|OVERRIDE' trailer.
++"
++  FAIL=1
++else
++  case "$VERDICT" in
++    PASS|CAP_REACHED|OVERRIDE) : ;;
++    *)
++      ERR="${ERR}  - Malformed 'AI-Verdict: $VERDICT' (must be PASS, CAP_REACHED, or OVERRIDE).
++"
++      FAIL=1
++      ;;
++  esac
++fi
++
++if [ "$FAIL" -ne 0 ]; then
++  printf 'commit rejected by .git/hooks/commit-msg (CLAUDE.md §7):\n%s\n' "$ERR" >&2
++  printf 'Required trailers at the end of the commit message:\n' >&2
++  printf '  AI-Verdict: PASS | CAP_REACHED | OVERRIDE\n' >&2
++  printf '  AI-Task: <task>\n' >&2
++  exit 1
++fi
++
++exit 0
+
+warning: in the working copy of 'ai_coding/active/commit-msg-trailer-hook/PROGRESS.md', LF will be replaced by CRLF the next time Git touches it
+diff --git a/ai_coding/active/commit-msg-trailer-hook/PROGRESS.md b/ai_coding/active/commit-msg-trailer-hook/PROGRESS.md
+new file mode 100644
+index 0000000..298f453
+--- /dev/null
++++ b/ai_coding/active/commit-msg-trailer-hook/PROGRESS.md
+@@ -0,0 +1,30 @@
++# Task: commit-msg-trailer-hook
++
++**Branch:** ai-coding-infrastructure
++**Started:** 2026-05-17
++
++## Goal
++Add `.git/hooks/commit-msg` that rejects local commits missing
++`AI-Verdict:` / `AI-Task:` trailers on this repo. Local-loop counterpart
++to the CI merge gate in [.github/workflows/tests.yml](../../../.github/workflows/tests.yml).
++Hook is non-mandatory per CLAUDE.md (the CI gate is the authoritative
++enforcement); this just gives faster feedback at `git commit` time.
++
++## Steps
++- [x] Create task folder per CLAUDE.md §2
++- [x] Initial PROGRESS.md
++- [ ] Write `.git/hooks/commit-msg` (POSIX sh, matches existing post-commit style)
++- [ ] Manual test: commit msg without trailers rejected; with trailers accepted; with CAP_REACHED accepted but warned
++- [ ] Run `uv run pytest` (regression check — no pytest tests cover git hooks; this is just a "did I break anything else" sanity run)
++- [ ] Generate `diff.patch`
++- [ ] Run `ai_coding/reviewer.py` → `review_local.md`
++- [ ] Judge verdict, write STATUS, commit with trailers
++
++## Pending decisions
++- Hook distribution: local-only `.git/hooks/` (matches existing post-commit
++  pattern) vs tracked location with setup-script install. Defaulting to
++  local-only; flag for user follow-up.
++
++## Notes
++- CLAUDE.md §3 calls for tests but git hooks don't fit pytest. Will note
++  this in disagreements.log if reviewer flags it as a §3 violation.
+
+diff --git a/ai_coding/active/commit-msg-trailer-hook/disagreements.log b/ai_coding/active/commit-msg-trailer-hook/disagreements.log
+new file mode 100644
+index 0000000..e69de29
