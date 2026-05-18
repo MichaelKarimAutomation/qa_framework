@@ -20,6 +20,7 @@ read the operating contract first.
 5. Addressed first deep-review findings: softened step 2 hook language, added [OVERRIDE] to step 4 tag list, added brief quarantine mention in step 6. pytest 22/22. reviewer PASS.
 6. Addressed second deep-review findings: renamed step 4 title to cover all four tags (not just halt ones); branched the closing options into halt vs committed tag groups. pytest + reviewer skipped per user authorization.
 7. Addressed third deep-review findings: reworded edge case 1 so "rewrite history to PASS" is no longer suggested (loses audit trail); replaced with "redo work for genuine PASS, or admin-override to preserve history." Stopped recording forward-referencing commit SHAs and "(pending)" markers in this file (they kept rotting; git log is the SHA record).
+8. Addressed fourth deep-review findings: fixed edge case 2's muddled causal chain. Two separate hooks were being conflated; the new wording distinguishes the PreToolUse hook (blocks Claude's edits, not human ones) from the commit-msg hook (the one `--no-verify` actually bypasses). pytest + reviewer skipped per user authorization.
 
 ## Notes
 - §3 says implement + tests. HTML docs aren't pytest-testable; flagged in

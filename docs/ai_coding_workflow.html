@@ -190,8 +190,9 @@ gh pr create --base master</pre>
         <code>ai_coding/archive</code>, or
         <code>ai_coding/quarantine</code>. The merge gate will skip the
         check and your pull request goes through normal review. The
-        Claude Code hooks still block edits to source files until a task
-        folder exists, so to bypass the local commit hook on a quick
+        Claude Code PreToolUse hook only blocks edits that Claude makes,
+        so a human editing files directly is unaffected. To skip the
+        local commit-msg hook's trailer check on a quick non-pipeline
         commit, use <code>git commit --no-verify</code>.
     </p>
 </details>
