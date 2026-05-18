@@ -1,84 +1,47 @@
 diff --git a/docs/ai_coding_workflow.html b/docs/ai_coding_workflow.html
-index a7971ea..c4c7522 100644
+index c4c7522..16db3ac 100644
 --- a/docs/ai_coding_workflow.html
 +++ b/docs/ai_coding_workflow.html
-@@ -67,12 +67,12 @@
- <ol class="steps">
-     <li>
-         <strong>Update master and start a new branch.</strong>
--        <pre>git checkout master
--git pull
-+        <pre>git checkout master &amp;&amp; git pull
- git checkout -b task/short-name</pre>
-         Pick a short name written in lowercase words joined by hyphens
-         (for example <code>task/add-login-button</code>). The name should
--        say what the change is about.
-+        say what the change is about. On Windows PowerShell, replace
-+        <code>&amp;&amp;</code> with <code>;</code>.
+@@ -76,11 +76,12 @@ git checkout -b task/short-name</pre>
      </li>
      <li>
          <strong>Tell Claude Code what you want in plain words.</strong>
-@@ -102,20 +102,36 @@ git checkout -b task/short-name</pre>
+-        Just describe the change. You do not need to mention any of the
+-        pipeline steps. Hooks make Claude do them automatically: it
+-        creates a folder for the task, writes tests, runs them, asks the
++        Just describe the change. Claude follows the pipeline on its own:
++        it creates the task folder, writes tests, runs them, asks the
+         local AI reviewer to check the work, and makes a commit with the
+-        special tag lines at the bottom.
++        special tag lines at the bottom. Hooks back this up by blocking
++        edits outside the task folder and rejecting commits missing the
++        tag lines.
      </li>
      <li>
-         <strong>Ask Claude for a deep review. This is required.</strong>
--        In the same Claude Code chat, say something like
--        <em>"do a deep review of the changes."</em> Claude will read every
--        change, every log file, and every affected source file, then tell
--        you anything that looks wrong. Pay extra attention if any of your
--        task folders are tagged <code>[CAP_REACHED]</code> or
-+        In the same Claude Code chat, paste this prompt:
-+        <pre>Do a deep review of the changes on this branch. Find this branch's
-+task folder under ai_coding/active/ (use the AI-Task trailer on a
-+recent commit on this branch), read its STATUS file and
-+disagreements.log, flag any [TEST_CAP_REACHED], [FULL_SUITE_FAILED],
-+[CAP_REACHED], or [OVERRIDE] tags, and tell me the next step.</pre>
-+        Claude will read every change, every log file, and every affected
-+        source file for this branch only. Take its findings seriously,
-+        especially anything tagged <code>[CAP_REACHED]</code> or
-         <code>[OVERRIDE]</code>.
+         <strong>Watch progress in <code>ai_coding/active/&lt;your task&gt;/PROGRESS.md</code>.</strong>
+@@ -93,9 +94,10 @@ git checkout -b task/short-name</pre>
+         Open <code>ai_coding/active/&lt;your task&gt;/disagreements.log</code>.
+         You will see one of these tags:
+         <ul>
+-            <li><code>[TEST_CAP_REACHED]</code>: tests still failed after 3 fix attempts.</li>
+-            <li><code>[FULL_SUITE_FAILED]</code>: something Claude did not touch is now broken.</li>
+-            <li><code>[CAP_REACHED]</code>: the local reviewer kept finding problems over 2 attempts.</li>
++            <li><code>[TEST_CAP_REACHED]</code>: tests still failed after 3 fix attempts. No commit was made.</li>
++            <li><code>[FULL_SUITE_FAILED]</code>: something Claude did not touch is now broken. No commit was made.</li>
++            <li><code>[CAP_REACHED]</code>: the local reviewer kept finding problems over 2 attempts. Claude committed anyway and is flagging it for you.</li>
++            <li><code>[OVERRIDE]</code>: Claude disagreed with the local reviewer and proceeded. Claude committed and is flagging it for you. The merge gate will block the pull request until you clear it.</li>
+         </ul>
+         Read the log, then decide what to do next. Options are: fix it
+         yourself, give Claude new instructions, or throw the task away.
+@@ -122,7 +124,10 @@ OVERRIDE, leave it in place. Touch only this branch's folder, not any
+ other task folders that happen to be in active/. Report what was moved.</pre>
+         Folders tagged <code>CAP_REACHED</code> or <code>OVERRIDE</code>
+         stay in <code>active/</code> on purpose. A human handles those
+-        by hand.
++        by hand. If you review one and decide to set it aside instead of
++        fixing it, move it to <code>ai_coding/quarantine/</code> rather
++        than <code>archive/</code>. Quarantine is the "looked at, not
++        resolved" pile.
      </li>
      <li>
--        <strong>Move finished task folders into <code>ai_coding/archive/</code>.</strong>
--        After the deep review, any folder whose <code>STATUS</code> file
--        says <code>PASS</code> goes from <code>ai_coding/active/</code> to
--        <code>ai_coding/archive/</code>. Folders tagged
--        <code>CAP_REACHED</code> or <code>OVERRIDE</code> stay in place.
--        Those need a human to handle them by hand.
-+        <strong>Move this branch's finished task folder into <code>ai_coding/archive/</code>.</strong>
-+        Ask Claude to do it with this prompt:
-+        <pre>If this branch's task folder under ai_coding/active/ has STATUS=PASS,
-+move it into ai_coding/archive/. If it is tagged CAP_REACHED or
-+OVERRIDE, leave it in place. Touch only this branch's folder, not any
-+other task folders that happen to be in active/. Report what was moved.</pre>
-+        Folders tagged <code>CAP_REACHED</code> or <code>OVERRIDE</code>
-+        stay in <code>active/</code> on purpose. A human handles those
-+        by hand.
-+    </li>
-+    <li>
-+        <strong>Run <code>/clear</code> when Claude tells you to.</strong>
-+        Claude will say something like <em>"deep review complete. run
-+        /clear before starting the next feature."</em> Type
-+        <code>/clear</code> in the Claude Code chat. That wipes its
-+        memory of this work so the next task starts fresh. Do not run
-+        <code>/clear</code> earlier. That would erase the context the
-+        deep review needs.
-     </li>
-     <li>
-         <strong>Push the branch and open a pull request.</strong>
-@@ -131,15 +147,6 @@ gh pr create --base master</pre>
-         Use the green merge button on GitHub. Delete the branch when
-         GitHub offers to.
-     </li>
--    <li>
--        <strong>Run <code>/clear</code> when Claude tells you to.</strong>
--        Claude will say something like <em>"deep review complete. run
--        /clear before starting the next feature."</em> Type
--        <code>/clear</code> in the Claude Code chat. That wipes its
--        memory of this work so the next task starts fresh. Do not run
--        <code>/clear</code> earlier. That would erase the context the
--        deep review needs.
--    </li>
- </ol>
- 
- <h2>What you never have to do</h2>
+         <strong>Run <code>/clear</code> when Claude tells you to.</strong>
