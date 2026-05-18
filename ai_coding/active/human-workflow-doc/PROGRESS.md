@@ -20,7 +20,12 @@ read the operating contract first.
 - [x] Run `uv run pytest` — 22/22 green
 - [x] Generate diff.patch
 - [x] Run ai_coding/reviewer.py → VERDICT: PASS
-- [x] STATUS=PASS, commit with trailers (pending)
+- [x] STATUS=PASS, first commit landed (b7a347b)
+- [x] Iteration 2: revise doc per user feedback (no em-dashes, plainer language, deep review + archive folded into main steps as mandatory)
+- [x] Re-run pytest — 22/22 green
+- [x] Regenerate diff.patch for the revision
+- [x] Re-run reviewer.py — VERDICT: PASS
+- [x] Second commit with trailers (pending)
 
 ## Notes
 - §3 says implement + tests. HTML docs aren't pytest-testable; will note
