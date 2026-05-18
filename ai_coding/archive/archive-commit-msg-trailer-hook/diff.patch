@@ -1,0 +1,20 @@
+diff --git a/ai_coding/active/commit-msg-trailer-hook/PROGRESS.md b/ai_coding/archive/commit-msg-trailer-hook/PROGRESS.md
+similarity index 100%
+rename from ai_coding/active/commit-msg-trailer-hook/PROGRESS.md
+rename to ai_coding/archive/commit-msg-trailer-hook/PROGRESS.md
+diff --git a/ai_coding/active/commit-msg-trailer-hook/STATUS b/ai_coding/archive/commit-msg-trailer-hook/STATUS
+similarity index 100%
+rename from ai_coding/active/commit-msg-trailer-hook/STATUS
+rename to ai_coding/archive/commit-msg-trailer-hook/STATUS
+diff --git a/ai_coding/active/commit-msg-trailer-hook/diff.patch b/ai_coding/archive/commit-msg-trailer-hook/diff.patch
+similarity index 100%
+rename from ai_coding/active/commit-msg-trailer-hook/diff.patch
+rename to ai_coding/archive/commit-msg-trailer-hook/diff.patch
+diff --git a/ai_coding/active/commit-msg-trailer-hook/disagreements.log b/ai_coding/archive/commit-msg-trailer-hook/disagreements.log
+similarity index 100%
+rename from ai_coding/active/commit-msg-trailer-hook/disagreements.log
+rename to ai_coding/archive/commit-msg-trailer-hook/disagreements.log
+diff --git a/ai_coding/active/commit-msg-trailer-hook/review_local.md b/ai_coding/archive/commit-msg-trailer-hook/review_local.md
+similarity index 100%
+rename from ai_coding/active/commit-msg-trailer-hook/review_local.md
+rename to ai_coding/archive/commit-msg-trailer-hook/review_local.md
