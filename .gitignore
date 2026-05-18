@@ -28,3 +28,6 @@ docs/api/
 ai_coding/UNROUTED.log
 ai_coding/notify.log
 ai_coding/**/diff_*_*.patch
+
+# Claude Code per-user settings (the team-shared .claude/settings.json IS committed)
+.claude/settings.local.json

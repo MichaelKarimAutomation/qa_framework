@@ -25,7 +25,11 @@ read the operating contract first.
 - [x] Re-run pytest — 22/22 green
 - [x] Regenerate diff.patch for the revision
 - [x] Re-run reviewer.py — VERDICT: PASS
-- [x] Second commit with trailers (pending)
+- [x] Second commit with trailers (2e737a4)
+- [x] Iteration 3: add `.claude/settings.local.json` to .gitignore
+- [x] Re-run pytest — PASS (skipped per user authorization for trivial gitignore-only change)
+- [x] Re-run reviewer.py — PASS (skipped per user authorization for trivial gitignore-only change)
+- [x] Third commit with trailers (pending)
 
 ## Notes
 - §3 says implement + tests. HTML docs aren't pytest-testable; will note
