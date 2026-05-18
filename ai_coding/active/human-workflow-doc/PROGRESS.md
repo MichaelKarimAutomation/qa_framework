@@ -29,7 +29,11 @@ read the operating contract first.
 - [x] Iteration 3: add `.claude/settings.local.json` to .gitignore
 - [x] Re-run pytest — PASS (skipped per user authorization for trivial gitignore-only change)
 - [x] Re-run reviewer.py — PASS (skipped per user authorization for trivial gitignore-only change)
-- [x] Third commit with trailers (pending)
+- [x] Third commit with trailers (49cdee2)
+- [x] Iteration 4: combine git checkout master + git pull on one line (step 1); make step 5 + step 6 prompts copy-pastable and scoped to this branch's task folder only; move /clear before push so Claude-side steps end before git/GitHub ceremony begins. First reviewer pass on this iteration flagged two concerns that were both misreads of the diff; user authorized OVERRIDE; subsequent revision per user feedback passed cleanly on second review.
+- [x] Re-run pytest — 22/22 green
+- [x] Re-run reviewer.py — VERDICT: PASS
+- [x] Fourth commit with trailers (pending)
 
 ## Notes
 - §3 says implement + tests. HTML docs aren't pytest-testable; will note
