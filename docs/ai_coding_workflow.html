@@ -90,7 +90,7 @@ git checkout -b task/short-name</pre>
         is left.
     </li>
     <li>
-        <strong>Step in if Claude stops with a problem.</strong>
+        <strong>Check <code>disagreements.log</code> when Claude flags an issue.</strong>
         Open <code>ai_coding/active/&lt;your task&gt;/disagreements.log</code>.
         You will see one of these tags:
         <ul>
@@ -99,8 +99,11 @@ git checkout -b task/short-name</pre>
             <li><code>[CAP_REACHED]</code>: the local reviewer kept finding problems over 2 attempts. Claude committed anyway and is flagging it for you.</li>
             <li><code>[OVERRIDE]</code>: Claude disagreed with the local reviewer and proceeded. Claude committed and is flagging it for you. The merge gate will block the pull request until you clear it.</li>
         </ul>
-        Read the log, then decide what to do next. Options are: fix it
-        yourself, give Claude new instructions, or throw the task away.
+        Read the log, then decide. For the two halt tags (no commit yet),
+        you can fix the problem yourself, give Claude new instructions, or
+        drop the task. For <code>[CAP_REACHED]</code> or
+        <code>[OVERRIDE]</code>, the commit already exists, so you fix
+        on top, redirect Claude, or reset the branch to undo the commit.
     </li>
     <li>
         <strong>Ask Claude for a deep review. This is required.</strong>

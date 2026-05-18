@@ -37,7 +37,11 @@ read the operating contract first.
 - [x] Iteration 5: address deep-review findings. Soften step 2 hook language (Claude follows pipeline, hooks are backup). Add [OVERRIDE] to the step 4 tag list with a one-line note distinguishing it from halt tags. Add a brief quarantine mention in step 6 covering when to use it vs archive.
 - [x] Re-run pytest — 22/22 green
 - [x] Re-run reviewer.py — VERDICT: PASS
-- [x] Fifth commit with trailers (pending)
+- [x] Fifth commit with trailers (642917b)
+- [x] Iteration 6: address second deep-review findings. Rename step 4 title from "Step in if Claude stops" (only true for 2 of 4 tags) to "Check disagreements.log when Claude flags an issue." Replace closing sentence with branched guidance: halt tags get fix/redirect/drop; committed tags ([CAP_REACHED]/[OVERRIDE]) get fix-on-top/redirect/reset.
+- [x] Re-run pytest — PASS (skipped per user authorization)
+- [x] Re-run reviewer.py — PASS (skipped per user authorization)
+- [x] Sixth commit with trailers (pending)
 
 ## Notes
 - §3 says implement + tests. HTML docs aren't pytest-testable; will note
