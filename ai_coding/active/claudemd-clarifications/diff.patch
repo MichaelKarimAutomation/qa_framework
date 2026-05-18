@@ -1,0 +1,29 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 9c2ca64..86edee8 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -19,6 +19,11 @@ changing this file.
+   directly on main. Never commit to main.
+ - Concurrency is handled structurally by branch isolation + per-task folders
+   + the AI-Task commit trailer (see §7, §8). There is no lockfile by design.
++- Every code edit in this repository is feature work regardless of size.
++  There is no casual mode. Doc tweaks, folder renames, gitignore changes,
++  single-line fixes, and `git mv` archive operations all trigger the
++  §2-§7 pipeline — task folder, tests if applicable, §5 full-suite run,
++  §6 reviewer.py, commit with trailers. A small request is not an exemption.
+ 
+ ## 2. Task Folder (create at start of every task)
+ For task `<task>`, create:
+@@ -118,6 +123,12 @@ on commit. Just ensure the trailer is correct.
+   NOT every step — per-step writes spend the very budget they protect.
+ - Record: current task, branch, steps completed, steps remaining, pending
+   decisions/issues.
++- Record verdicts and iteration descriptions only — e.g. `pytest 22/22 green`,
++  `reviewer PASS`, `iteration 3: <what changed>`. Do NOT write commit SHAs
++  or `(pending)` / `(TBD)` markers that forward-reference artifacts which
++  do not yet exist. The git log is the authoritative SHA record; duplicating
++  SHAs in PROGRESS.md just creates staleness (forward-reference placeholders
++  rot in place because the writer rarely circles back to fill them in).
+ - Honest limitation (do not overstate to the user): nothing COMMITTED is
+   lost on session death; in-loop progress since the last boundary may repeat.
+   The test-fix loop is the least-protected phase. Do not claim "nothing is
