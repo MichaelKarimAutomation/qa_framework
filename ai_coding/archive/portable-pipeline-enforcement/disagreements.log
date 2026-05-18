@@ -1,0 +1,27 @@
+[2026-05-18 08:35] [OVERRIDE] commit (pending — this branch)
+  Local model flagged: (no concrete defects)
+  Local model output: Both outer iterations of reviewer.py produced
+    PR-description-style summaries. Neither attempt ended with a parseable
+    `VERDICT: PASS` or `VERDICT: FAIL` line, so reviewer.py fail-safed to
+    FAIL on each attempt. The body of each review is positive ("comprehensive",
+    "significantly enhances", "facilitating better organization") and flags
+    no bugs, security issues, or correctness defects in the actual diff.
+    Some claims in the model output are factually wrong — e.g. it asserts
+    CLAUDE.md was modified (it was not in this diff) and identifies the
+    required trailers as `Author:`/`Co-authored-by:`/`Signed-off-by:`
+    (the real trailers are `AI-Verdict:`/`AI-Task:`).
+  Claude Code reasoning: The "FAIL" verdict is a parsing artifact, not a
+    real review finding. The model broke its §6 contract (must end with a
+    VERDICT line) but produced no substantive issues. Per CLAUDE.md §6
+    "Disagreement (model is wrong / nitpicking / not applicable)" — this
+    qualifies. Override and proceed.
+
+  Side effect: dogfooding this commit revealed a defect in the pre-commit
+  hook itself: the original "" branch of the review_local.md VERDICT case
+  rejected any review with no VERDICT line, including ones legitimately
+  using the §6 OVERRIDE / CAP_REACHED escape. That bricks the very escape
+  hatch §6 defines. Fixed in this same commit (pre-commit and commit-msg
+  now treat missing/malformed VERDICT as FAIL-equivalent — require STATUS
+  to be OVERRIDE or CAP_REACHED and disagreements.log to carry the
+  matching marker). Selftest cases 13a (rejection) and 13b (acceptance)
+  pin this branch.

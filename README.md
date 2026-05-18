@@ -91,6 +91,34 @@ qa_framework/
 
 ---
 
+## Repository hooks
+
+Git hooks are version-controlled under [tools/hooks/](tools/hooks/) and
+activated via `core.hooksPath`. They enforce the CLAUDE.md §2-§7 pipeline
+locally (artifact presence, STATUS validity, trailer consistency, diff
+routing). After every fresh clone, run one of:
+
+```powershell
+# Windows (PowerShell)
+.\tools\install-hooks.ps1
+```
+
+```bash
+# Linux / macOS / Git for Windows bash
+bash tools/install-hooks.sh
+```
+
+This sets `git config core.hooksPath tools/hooks`. The hooks then fire on
+every commit in that clone, with no per-machine drift. To verify the hooks,
+run the self-test (no pytest / ollama needed):
+
+```bash
+bash tools/hooks-selftest.sh
+# or:  powershell -File tools/hooks-selftest.ps1
+```
+
+---
+
 ## Installation
 
 Two installation paths are available. Full step-by-step guides are in the `docs/` folder:

@@ -1,0 +1,1486 @@
+diff --git a/README.md b/README.md
+index 080c0a8..aa3a15b 100644
+--- a/README.md
++++ b/README.md
+@@ -91,6 +91,34 @@ qa_framework/
+ 
+ ---
+ 
++## Repository hooks
++
++Git hooks are version-controlled under [tools/hooks/](tools/hooks/) and
++activated via `core.hooksPath`. They enforce the CLAUDE.md §2-§7 pipeline
++locally (artifact presence, STATUS validity, trailer consistency, diff
++routing). After every fresh clone, run one of:
++
++```powershell
++# Windows (PowerShell)
++.\tools\install-hooks.ps1
++```
++
++```bash
++# Linux / macOS / Git for Windows bash
++bash tools/install-hooks.sh
++```
++
++This sets `git config core.hooksPath tools/hooks`. The hooks then fire on
++every commit in that clone, with no per-machine drift. To verify the hooks,
++run the self-test (no pytest / ollama needed):
++
++```bash
++bash tools/hooks-selftest.sh
++# or:  powershell -File tools/hooks-selftest.ps1
++```
++
++---
++
+ ## Installation
+ 
+ Two installation paths are available. Full step-by-step guides are in the `docs/` folder:
+diff --git a/ai_coding/active/portable-pipeline-enforcement/PROGRESS.md b/ai_coding/active/portable-pipeline-enforcement/PROGRESS.md
+new file mode 100644
+index 0000000..bb3d439
+--- /dev/null
++++ b/ai_coding/active/portable-pipeline-enforcement/PROGRESS.md
+@@ -0,0 +1,61 @@
++# PROGRESS — portable-pipeline-enforcement
++
++Task: Add a portable pre-commit hook enforcing CLAUDE.md §2-§6, migrate
++existing hooks into version control under tools/hooks/, fix the post-commit
++active-stub bug (tri-branch routing), and add a self-test that pins both
++the rejection branches and the close-out routing case.
++
++Branch: portable-pipeline-enforcement (cut from master at b8f022c)
++
++## Steps completed
++- §2 task folder created.
++- Authored tools/hooks/pre-commit: filesystem checks for the §2-§6 artifacts
++  (presence + staging), STATUS token validity, review_local.md ↔
++  disagreements.log internal consistency, close-out exemption.
++- Migrated tools/hooks/commit-msg (extended): original §7 trailer checks PLUS
++  AI-Verdict ↔ STATUS match and AI-Verdict ↔ review_local.md VERDICT
++  consistency. Hook-split rationale: pre-commit has no access to the commit
++  message, so trailer-vs-disk checks must live in commit-msg.
++- Migrated tools/hooks/post-commit with fix B (tri-branch routing): prefer
++  active/<task>/, else archive/<task>/, else create active/<task>/. Replaces
++  the unconditional mkdir that was recreating empty active stubs on every
++  close-out commit (e.g. cbacfc2 on chore/archive-commit-msg-trailer-hook).
++- Authored tools/install-hooks.{ps1,sh} setting `core.hooksPath = tools/hooks`.
++  Refuses to install on git < 2.9 (when hooksPath was introduced).
++- Authored tools/hooks-selftest.{ps1,sh} — 23 cases per platform covering
++  every pre-commit rejection branch, commit-msg trailer-consistency
++  rejections, and the post-commit routing fix (test 21 is the regression
++  pin for fix B: close-out rename → diff in archive, no active stub).
++- README updated with a "Repository hooks" section pointing at the install
++  and self-test scripts.
++- Deleted local .git/hooks/{commit-msg,post-commit} after migration so
++  there's no stale per-clone copy.
++- Self-tests green on both Windows PowerShell and Git for Windows bash:
++  23/23 passed.
++- §5 full suite: `uv run pytest` → 22/22 passed.
++
++## Steps remaining
++- §7 commit.
++
++## §6 outcome
++- reviewer.py outer iteration 1: pytest+selftest green, model produced
++  PR-description summary with no VERDICT line. reviewer.py fail-safed FAIL.
++- reviewer.py outer iteration 2: same shape — PR-description summary, no
++  VERDICT line, fail-safed FAIL. No concrete defects flagged either time.
++- Verdict: [OVERRIDE]. Reasoning in disagreements.log.
++- Hook refinement made in response to a real defect this very task surfaced:
++  the original "no VERDICT line" branch of pre-commit rejected the §6
++  OVERRIDE escape itself. Fixed; selftest cases 13a/13b pin the new
++  behavior. Selftest count grew from 23 to 25; both platforms green.
++
++## Pending decisions / issues
++- Hook split (pre-commit / commit-msg) is necessary, not optional —
++  pre-commit fires before git prepares the commit message, so checks that
++  reference the AI-Task/AI-Verdict trailers have to live in commit-msg.
++- The close-out exemption uses git's rename detection (-M) rather than
++  matching paths heuristically. This means a rename-with-substantial-edit
++  that drops below git's similarity threshold disqualifies the exemption
++  and triggers the normal artifact checks — desired behavior.
++- Git for Windows `git mv` is broken on directories, so the self-test
++  uses OS-level mv + rmdir + git add -A and relies on rename detection in
++  the hook. Functionally equivalent to git mv on Linux/Mac.
+diff --git a/ai_coding/active/portable-pipeline-enforcement/STATUS b/ai_coding/active/portable-pipeline-enforcement/STATUS
+new file mode 100644
+index 0000000..ee3784e
+--- /dev/null
++++ b/ai_coding/active/portable-pipeline-enforcement/STATUS
+@@ -0,0 +1 @@
++OVERRIDE
+diff --git a/ai_coding/active/portable-pipeline-enforcement/disagreements.log b/ai_coding/active/portable-pipeline-enforcement/disagreements.log
+new file mode 100644
+index 0000000..7fd16b4
+--- /dev/null
++++ b/ai_coding/active/portable-pipeline-enforcement/disagreements.log
+@@ -0,0 +1,27 @@
++[2026-05-18 08:35] [OVERRIDE] commit (pending — this branch)
++  Local model flagged: (no concrete defects)
++  Local model output: Both outer iterations of reviewer.py produced
++    PR-description-style summaries. Neither attempt ended with a parseable
++    `VERDICT: PASS` or `VERDICT: FAIL` line, so reviewer.py fail-safed to
++    FAIL on each attempt. The body of each review is positive ("comprehensive",
++    "significantly enhances", "facilitating better organization") and flags
++    no bugs, security issues, or correctness defects in the actual diff.
++    Some claims in the model output are factually wrong — e.g. it asserts
++    CLAUDE.md was modified (it was not in this diff) and identifies the
++    required trailers as `Author:`/`Co-authored-by:`/`Signed-off-by:`
++    (the real trailers are `AI-Verdict:`/`AI-Task:`).
++  Claude Code reasoning: The "FAIL" verdict is a parsing artifact, not a
++    real review finding. The model broke its §6 contract (must end with a
++    VERDICT line) but produced no substantive issues. Per CLAUDE.md §6
++    "Disagreement (model is wrong / nitpicking / not applicable)" — this
++    qualifies. Override and proceed.
++
++  Side effect: dogfooding this commit revealed a defect in the pre-commit
++  hook itself: the original "" branch of the review_local.md VERDICT case
++  rejected any review with no VERDICT line, including ones legitimately
++  using the §6 OVERRIDE / CAP_REACHED escape. That bricks the very escape
++  hatch §6 defines. Fixed in this same commit (pre-commit and commit-msg
++  now treat missing/malformed VERDICT as FAIL-equivalent — require STATUS
++  to be OVERRIDE or CAP_REACHED and disagreements.log to carry the
++  matching marker). Selftest cases 13a (rejection) and 13b (acceptance)
++  pin this branch.
+diff --git a/ai_coding/active/portable-pipeline-enforcement/review_local.md b/ai_coding/active/portable-pipeline-enforcement/review_local.md
+new file mode 100644
+index 0000000..47cd85a
+--- /dev/null
++++ b/ai_coding/active/portable-pipeline-enforcement/review_local.md
+@@ -0,0 +1,40 @@
++# Local AI review — 2026-05-18T08:32:17.625963+00:00
++
++> PARSING NOTE: No VERDICT line found in model output. Treating as FAIL (fail-safe).
++
++This pull request introduces a comprehensive Git hook system to enforce adherence to the `CLAUDE.md` guidelines within the repository. The hooks ensure that developers follow the specified processes for task management, artifact creation, and commit practices, thereby improving code quality and consistency.
++
++### Highlights
++
++* **Git Hook Implementation**: Implements `pre-commit`, `commit-msg`, and `post-commit` hooks to enforce `CLAUDE.md` guidelines.
++* **Artifact Enforcement**: The `pre-commit` hook ensures that all required task-folder artifacts (`PROGRESS.md`, `STATUS`, `disagreements.log`, `diff.patch`, `review_local.md`) are present on disk and staged for commit.
++* **Trailer Validation**: The `commit-msg` hook validates the presence and correctness of `CLAUDE-TRAILER` and `CLAUDE-TRAILER-STATUS` trailers in commit messages, ensuring proper attribution and status tracking.
++* **Task Routing**: The `post-commit` hook automatically routes committed diffs into the appropriate task folders, streamlining the workflow.
++* **Cross-Platform Support**: Includes both PowerShell (`install-hooks.ps1`) and shell (`install-hooks.sh`) scripts for installing the hooks, ensuring compatibility across different operating systems.
++
++### Changelog
++
++* **tools/hooks/commit-msg**
++  * Added a new hook to validate commit message trailers.
++  * Ensures `CLAUDE-TRAILER` and `CLAUDE-TRAILER-STATUS` trailers are present and correctly formatted.
++  * Validates that the `CLAUDE-TRAILER-STATUS` trailer matches the `STATUS` file content.
++* **tools/hooks/post-commit**
++  * Added a new hook to route committed diffs into task folders.
++  * Automatically creates task directories and moves diffs based on commit messages.
++  * Ensures task folders are properly initialized with required files.
++* **tools/hooks/pre-commit**
++  * Added a new hook to enforce artifact presence and status consistency.
++  * Validates that all required task-folder artifacts are present and staged.
++  * Checks for valid `STATUS` file values and `review_local.md` verdict consistency.
++* **tools/install-hooks.ps1**
++  * Added a PowerShell script to install Git hooks.
++  * Ensures the `core.hooksPath` is set to `tools/hooks`.
++  * Includes error handling for missing hooks or outdated Git versions.
++* **tools/install-hooks.sh**
++  * Added a shell script to install Git hooks.
++  * Ensures the `core.hooksPath` is set to `tools/hooks`.
++  * Includes error handling for missing hooks or outdated Git versions.
++
++### Note
++
++This pull request introduces a new system for managing task-related artifacts and commit messages. It is crucial to run the `install-hooks.sh` or `install-hooks.ps1` script after cloning the repository to enable the hooks. The hooks enforce strict adherence to `CLAUDE.md` guidelines, ensuring consistency and quality in the codebase.
+diff --git a/tools/hooks-selftest.ps1 b/tools/hooks-selftest.ps1
+new file mode 100644
+index 0000000..dcc3e62
+--- /dev/null
++++ b/tools/hooks-selftest.ps1
+@@ -0,0 +1,342 @@
++# hooks-selftest.ps1 -- exercise tools/hooks/{pre-commit,commit-msg,post-commit}
++# against synthetic staged sets in a temp git repo. Asserts each rejection
++# branch of pre-commit and pins the post-commit tri-branch routing fix.
++#
++# The hooks themselves are POSIX-sh scripts (Git for Windows MSYS bash runs
++# them). This script invokes them via git's own commit machinery (hooksPath)
++# or directly via `bash`, depending on what's available -- same outcome.
++#
++# Run via:  pwsh -File tools\hooks-selftest.ps1   (or Windows PowerShell)
++# Exit 0 iff every case passes; exit 1 with a summary of failed cases.
++
++# Native-command stderr (e.g. git warnings, intentional hook rejection
++# messages) should NOT terminate this script; we check $LASTEXITCODE
++# explicitly per case.
++$ErrorActionPreference = 'Continue'
++
++$SelfDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
++$RepoRoot  = Split-Path -Parent $SelfDir
++$HooksDir  = Join-Path $RepoRoot 'tools\hooks'
++$Tmp       = Join-Path ([System.IO.Path]::GetTempPath()) ("hooks-selftest-" + [Guid]::NewGuid().ToString('N'))
++New-Item -ItemType Directory -Path $Tmp | Out-Null
++
++# Cleanup on exit. Use a script-scope flag so the finally block can find $Tmp.
++$Script:CleanupPath = $Tmp
++
++# bash from Git for Windows runs the POSIX hooks. Find it.
++$Bash = $null
++foreach ($cand in @(
++  'C:\Program Files\Git\bin\bash.exe',
++  'C:\Program Files\Git\usr\bin\bash.exe',
++  'C:\Program Files (x86)\Git\bin\bash.exe'
++)) {
++  if (Test-Path -LiteralPath $cand) { $Bash = $cand; break }
++}
++if (-not $Bash) {
++  $cmd = Get-Command bash -ErrorAction SilentlyContinue
++  if ($cmd) { $Bash = $cmd.Source }
++}
++if (-not $Bash) {
++  Write-Error "bash not found -- Git for Windows must be installed to exercise POSIX hooks"
++  exit 1
++}
++
++$Pass = 0
++$Fail = 0
++$Failed = New-Object System.Collections.Generic.List[string]
++
++function OK([string]$name)  { Write-Host "  [ok]   $name"; $Script:Pass++ }
++function BAD([string]$name) { Write-Host "  [FAIL] $name"; $Script:Fail++; $Script:Failed.Add($name) }
++
++function Init-Repo {
++  $scratch = Join-Path $Script:CleanupPath 'scratch'
++  # cd out before deletion — Windows locks the directory if any process has
++  # its CWD inside it.
++  Set-Location -LiteralPath $Script:RepoRoot
++  if (Test-Path -LiteralPath $scratch) { Remove-Item -LiteralPath $scratch -Recurse -Force }
++  New-Item -ItemType Directory -Path $scratch | Out-Null
++  Set-Location -LiteralPath $scratch
++  & git init -q
++  & git config user.email 'selftest@example.com'
++  & git config user.name  'selftest'
++  & git config commit.gpgsign false
++  # Use forward-slash form because git wants POSIX paths in hooksPath under MSYS.
++  $hooksPosix = ($Script:HooksDir -replace '\\', '/')
++  & git config core.hooksPath $hooksPosix
++  'seed' | Out-File -Encoding ascii seed.txt
++  & git add seed.txt
++  & git commit -q --no-verify -m 'seed'
++}
++$Script:HooksDir = $HooksDir
++$Script:RepoRoot = $RepoRoot
++
++function Write-Task {
++  param([string]$Task, [string]$Status, [string]$Review, [string]$DLog = '')
++  $dir = "ai_coding/active/$Task"
++  New-Item -ItemType Directory -Path $dir -Force | Out-Null
++  'progress' | Out-File -Encoding ascii (Join-Path $dir 'PROGRESS.md')
++  $Status    | Out-File -Encoding ascii (Join-Path $dir 'STATUS')
++  $DLog      | Out-File -Encoding ascii -NoNewline (Join-Path $dir 'disagreements.log')
++  'diff body' | Out-File -Encoding ascii (Join-Path $dir 'diff.patch')
++  ("review body`n`nVERDICT: $Review`n") | Out-File -Encoding ascii (Join-Path $dir 'review_local.md')
++  & git add $dir | Out-Null
++}
++
++function Closeout-Rename {
++  # Git for Windows `git mv` is broken on directories. Mirror what `git mv`
++  # does on Linux/Mac: OS rename + rmdir + git add -A (rename detection via
++  # -M in pre-commit/commit-msg collapses staged delete+add back to a rename).
++  param([string]$Task)
++  $src = "ai_coding/active/$Task"
++  $dst = "ai_coding/archive/$Task"
++  New-Item -ItemType Directory -Path $dst -Force | Out-Null
++  Get-ChildItem -LiteralPath $src -Force | ForEach-Object {
++    Move-Item -LiteralPath $_.FullName -Destination (Join-Path $dst $_.Name) -Force
++  }
++  Remove-Item -LiteralPath $src -Recurse -Force
++  & git add -A $src $dst | Out-Null
++}
++
++function Run-PreCommit {
++  # Merge bash stdout+stderr and discard — we only care about exit code.
++  $null = & $Bash -c "'$($HooksDir -replace '\\','/')/pre-commit'" 2>&1
++  return $LASTEXITCODE
++}
++
++function Expect-PrePass([string]$name) {
++  if ((Run-PreCommit) -eq 0) { OK $name } else { BAD "$name (pre-commit unexpectedly rejected)" }
++}
++function Expect-PreFail([string]$name) {
++  if ((Run-PreCommit) -ne 0) { OK $name } else { BAD "$name (pre-commit unexpectedly accepted)" }
++}
++
++function Write-Msg {
++  param([string]$Path, [string]$Task, [string]$Verdict)
++  "feat: scratch`n`nAI-Verdict: $Verdict`nAI-Task: $Task`n" | Out-File -Encoding ascii -NoNewline $Path
++}
++
++function Run-CommitMsg([string]$MsgPath) {
++  $posix = ($MsgPath -replace '\\','/')
++  $null = & $Bash -c "'$($HooksDir -replace '\\','/')/commit-msg' '$posix'" 2>&1
++  return $LASTEXITCODE
++}
++
++function Expect-MsgPass([string]$MsgPath, [string]$name) {
++  if ((Run-CommitMsg $MsgPath) -eq 0) { OK $name } else { BAD "$name (commit-msg unexpectedly rejected)" }
++}
++function Expect-MsgFail([string]$MsgPath, [string]$name) {
++  if ((Run-CommitMsg $MsgPath) -ne 0) { OK $name } else { BAD "$name (commit-msg unexpectedly accepted)" }
++}
++
++Write-Host "pre-commit cases:"
++
++  Init-Repo
++  Write-Task 'ok-task' 'PASS' 'PASS'
++  Expect-PrePass '01 golden path accepts'
++
++  Init-Repo
++  Write-Task 'no-progress' 'PASS' 'PASS'
++  Remove-Item ai_coding/active/no-progress/PROGRESS.md
++  & git rm -q --cached ai_coding/active/no-progress/PROGRESS.md | Out-Null
++  Expect-PreFail '02 missing PROGRESS.md rejects'
++
++  Init-Repo
++  Write-Task 'no-status' 'PASS' 'PASS'
++  Remove-Item ai_coding/active/no-status/STATUS
++  & git rm -q --cached ai_coding/active/no-status/STATUS | Out-Null
++  Expect-PreFail '03 missing STATUS rejects'
++
++  Init-Repo
++  Write-Task 'no-dlog' 'PASS' 'PASS'
++  Remove-Item ai_coding/active/no-dlog/disagreements.log
++  & git rm -q --cached ai_coding/active/no-dlog/disagreements.log | Out-Null
++  Expect-PreFail '04 missing disagreements.log rejects'
++
++  Init-Repo
++  Write-Task 'no-diff' 'PASS' 'PASS'
++  Remove-Item ai_coding/active/no-diff/diff.patch
++  & git rm -q --cached ai_coding/active/no-diff/diff.patch | Out-Null
++  Expect-PreFail '05 missing diff.patch rejects'
++
++  Init-Repo
++  Write-Task 'no-review' 'PASS' 'PASS'
++  Remove-Item ai_coding/active/no-review/review_local.md
++  & git rm -q --cached ai_coding/active/no-review/review_local.md | Out-Null
++  Expect-PreFail '06 missing review_local.md rejects'
++
++  Init-Repo
++  Write-Task 'status-unstaged' 'PASS' 'PASS'
++  & git rm -q --cached ai_coding/active/status-unstaged/STATUS | Out-Null
++  Expect-PreFail '07 STATUS on disk but unstaged rejects'
++
++  Init-Repo
++  Write-Task 'bad-status' 'PASS' 'PASS'
++  'FOOBAR' | Out-File -Encoding ascii ai_coding/active/bad-status/STATUS
++  & git add ai_coding/active/bad-status/STATUS | Out-Null
++  Expect-PreFail "08 STATUS contents 'FOOBAR' rejects"
++
++  Init-Repo
++  Write-Task 'fail-no-override' 'OVERRIDE' 'FAIL' ''
++  Expect-PreFail '09 review FAIL without [OVERRIDE]/[CAP_REACHED] rejects'
++
++  Init-Repo
++  Write-Task 'fail-with-override' 'OVERRIDE' 'FAIL' '[OVERRIDE] reason'
++  Expect-PrePass '10 review FAIL + STATUS=OVERRIDE + [OVERRIDE] in disagreements accepts'
++
++  # 11. Close-out pure rename.
++  Init-Repo
++  New-Item -ItemType Directory -Path ai_coding/active/oldtask -Force | Out-Null
++  'progress' | Out-File -Encoding ascii ai_coding/active/oldtask/PROGRESS.md
++  & git add ai_coding/active/oldtask | Out-Null
++  & git commit -q --no-verify -m 'set up oldtask' | Out-Null
++  Closeout-Rename 'oldtask'
++  Expect-PrePass '11 pure close-out rename accepts (exempt)'
++
++  # 12. Close-out rename + unrelated non-task file.
++  Init-Repo
++  New-Item -ItemType Directory -Path ai_coding/active/oldtask2 -Force | Out-Null
++  'progress' | Out-File -Encoding ascii ai_coding/active/oldtask2/PROGRESS.md
++  & git add ai_coding/active/oldtask2 | Out-Null
++  & git commit -q --no-verify -m 'set up oldtask2' | Out-Null
++  Closeout-Rename 'oldtask2'
++  'hi' | Out-File -Encoding ascii unrelated.txt
++  & git add unrelated.txt | Out-Null
++  Expect-PrePass '12 close-out rename + unrelated non-task file accepts'
++
++  # 13. No ai_coding paths staged at all.
++  Init-Repo
++  'x' | Out-File -Encoding ascii unrelated.txt
++  & git add unrelated.txt | Out-Null
++  Expect-PrePass '13 no ai_coding paths staged accepts'
++
++  # 13a. Missing VERDICT line + STATUS=PASS -> reject.
++  Init-Repo
++  Write-Task 'no-verdict-pass' 'PASS' 'PASS'
++  $rfile = 'ai_coding/active/no-verdict-pass/review_local.md'
++  (Get-Content $rfile) | Where-Object { $_ -notmatch '^VERDICT:' } | Set-Content $rfile -Encoding ascii
++  & git add $rfile | Out-Null
++  Expect-PreFail '13a missing VERDICT + STATUS=PASS rejects'
++
++  # 13b. Missing VERDICT line + STATUS=OVERRIDE + [OVERRIDE] -> accept.
++  Init-Repo
++  Write-Task 'no-verdict-override' 'OVERRIDE' 'PASS' '[OVERRIDE] reason'
++  $rfile = 'ai_coding/active/no-verdict-override/review_local.md'
++  (Get-Content $rfile) | Where-Object { $_ -notmatch '^VERDICT:' } | Set-Content $rfile -Encoding ascii
++  & git add $rfile | Out-Null
++  Expect-PrePass '13b missing VERDICT + STATUS=OVERRIDE + [OVERRIDE] accepts'
++
++  Write-Host "commit-msg cases:"
++
++  Init-Repo
++  Write-Task 'good' 'PASS' 'PASS'
++  Write-Msg msg.txt 'good' 'PASS'
++  Expect-MsgPass 'msg.txt' '14 trailers + STATUS=PASS match accepts'
++
++  Init-Repo
++  'feat: no trailers' | Out-File -Encoding ascii msg.txt
++  Expect-MsgFail 'msg.txt' '15 missing trailers rejects'
++
++  Init-Repo
++  Write-Task 'good2' 'PASS' 'PASS'
++  Write-Msg msg.txt 'good2' 'SOMETHING'
++  Expect-MsgFail 'msg.txt' '16 malformed AI-Verdict rejects'
++
++  Init-Repo
++  Write-Task 'mismatch' 'PASS' 'PASS'
++  Write-Msg msg.txt 'mismatch' 'CAP_REACHED'
++  Expect-MsgFail 'msg.txt' '17 STATUS=PASS but AI-Verdict=CAP_REACHED rejects'
++
++  Init-Repo
++  Write-Task 'review-fail-but-pass-trailer' 'OVERRIDE' 'FAIL' '[OVERRIDE] x'
++  'PASS' | Out-File -Encoding ascii ai_coding/active/review-fail-but-pass-trailer/STATUS
++  & git add ai_coding/active/review-fail-but-pass-trailer/STATUS | Out-Null
++  Write-Msg msg.txt 'review-fail-but-pass-trailer' 'PASS'
++  Expect-MsgFail 'msg.txt' '18 review FAIL but AI-Verdict=PASS rejects'
++
++  Init-Repo
++  New-Item -ItemType Directory -Path ai_coding/active/oldtask3 -Force | Out-Null
++  'progress' | Out-File -Encoding ascii ai_coding/active/oldtask3/PROGRESS.md
++  & git add ai_coding/active/oldtask3 | Out-Null
++  & git commit -q --no-verify -m 'set up oldtask3' | Out-Null
++  Closeout-Rename 'oldtask3'
++  Write-Msg msg.txt 'archive-oldtask3' 'PASS'
++  Expect-MsgPass 'msg.txt' '19 close-out commit-msg accepts with bare trailers'
++
++  Write-Host "post-commit cases:"
++
++  # 20. Archive-only routing.
++  Init-Repo
++  New-Item -ItemType Directory -Path ai_coding/archive/already-archived -Force | Out-Null
++  'old' | Out-File -Encoding ascii ai_coding/archive/already-archived/PROGRESS.md
++  & git add ai_coding/archive/already-archived | Out-Null
++  & git commit -q --no-verify -m 'prep already-archived' | Out-Null
++  'change' | Out-File -Encoding ascii scratch.txt
++  & git add scratch.txt | Out-Null
++  & git commit -q --no-verify -m "scratch`n`nAI-Verdict: PASS`nAI-Task: already-archived" | Out-Null
++  $diffInArchive   = @(Get-ChildItem -Path ai_coding/archive/already-archived -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
++  $activeDirExists = Test-Path -LiteralPath ai_coding/active/already-archived
++  if ($diffInArchive -ge 1 -and -not $activeDirExists) {
++    OK '20 routing: archive-only -> diff in archive, no active stub'
++  } else {
++    BAD "20 routing: archive-only (diffInArchive=$diffInArchive activeDirExists=$activeDirExists)"
++  }
++
++  # 21. CRITICAL: close-out rename -- fix B regression pin.
++  Init-Repo
++  New-Item -ItemType Directory -Path ai_coding/active/closing-task -Force | Out-Null
++  'progress' | Out-File -Encoding ascii ai_coding/active/closing-task/PROGRESS.md
++  & git add ai_coding/active/closing-task | Out-Null
++  & git commit -q --no-verify -m 'set up closing-task' | Out-Null
++  Closeout-Rename 'closing-task'
++  & git commit -q --no-verify -m "close out`n`nAI-Verdict: PASS`nAI-Task: closing-task" | Out-Null
++  $diffInArchive   = @(Get-ChildItem -Path ai_coding/archive/closing-task -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
++  $activeDirExists = Test-Path -LiteralPath ai_coding/active/closing-task
++  if ($diffInArchive -ge 1 -and -not $activeDirExists) {
++    OK '21 close-out rename -> diff in archive, no active stub (fix B)'
++  } else {
++    BAD "21 close-out rename (diffInArchive=$diffInArchive activeDirExists=$activeDirExists)"
++  }
++
++  # 22. Active-exists routing.
++  Init-Repo
++  New-Item -ItemType Directory -Path ai_coding/active/normal-task -Force | Out-Null
++  'progress' | Out-File -Encoding ascii ai_coding/active/normal-task/PROGRESS.md
++  & git add ai_coding/active/normal-task | Out-Null
++  & git commit -q --no-verify -m 'set up normal-task' | Out-Null
++  'edit' | Out-File -Encoding ascii note.txt
++  & git add note.txt | Out-Null
++  & git commit -q --no-verify -m "scratch`n`nAI-Verdict: PASS`nAI-Task: normal-task" | Out-Null
++  $diffInActive = @(Get-ChildItem -Path ai_coding/active/normal-task -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
++  if ($diffInActive -ge 1) {
++    OK '22 routing: active exists -> diff in active'
++  } else {
++    BAD "22 routing: active exists (diffInActive=$diffInActive)"
++  }
++
++  # 23. Fallback: neither.
++  Init-Repo
++  'edit' | Out-File -Encoding ascii note.txt
++  & git add note.txt | Out-Null
++  & git commit -q --no-verify -m "scratch`n`nAI-Verdict: PASS`nAI-Task: brand-new-task" | Out-Null
++  $diffInActive = @(Get-ChildItem -Path ai_coding/active/brand-new-task -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
++  if ($diffInActive -ge 1) {
++    OK '23 routing: neither exists -> fallback to active'
++  } else {
++    BAD "23 routing: neither (diffInActive=$diffInActive)"
++  }
++
++Write-Host ""
++Write-Host ("hooks-selftest: {0} passed, {1} failed" -f $Pass, $Fail)
++
++# Cleanup -- best-effort, never blocks the result.
++Set-Location -LiteralPath $RepoRoot
++if (Test-Path -LiteralPath $Script:CleanupPath) {
++  Remove-Item -LiteralPath $Script:CleanupPath -Recurse -Force -ErrorAction SilentlyContinue
++}
++
++if ($Fail -ne 0) {
++  Write-Host 'failed cases:'
++  foreach ($n in $Failed) { Write-Host "    - $n" }
++  exit 1
++}
++exit 0
+diff --git a/tools/hooks-selftest.sh b/tools/hooks-selftest.sh
+new file mode 100755
+index 0000000..a1ddc89
+--- /dev/null
++++ b/tools/hooks-selftest.sh
+@@ -0,0 +1,351 @@
++#!/usr/bin/env bash
++# hooks-selftest.sh — exercise tools/hooks/{pre-commit,commit-msg,post-commit}
++# against synthetic staged sets in a temp git repo. Asserts each rejection
++# branch of pre-commit and pins the post-commit tri-branch routing fix.
++#
++# Standalone: does not require pytest, ollama, or any project dependency.
++# Run via:  bash tools/hooks-selftest.sh
++#
++# Exit 0 iff every case passes. Exit 1 with a summary of failed cases.
++
++set -u
++
++SELF_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
++REPO_ROOT="$(cd -- "$SELF_DIR/.." && pwd)"
++HOOKS_DIR="$REPO_ROOT/tools/hooks"
++
++if [ ! -x "$HOOKS_DIR/pre-commit" ]; then
++  chmod +x "$HOOKS_DIR/pre-commit" "$HOOKS_DIR/commit-msg" "$HOOKS_DIR/post-commit" 2>/dev/null || true
++fi
++
++TMP="$(mktemp -d 2>/dev/null || mktemp -d -t hooks-selftest)"
++trap 'rm -rf "$TMP"' EXIT
++
++PASS=0
++FAIL=0
++FAILED=""
++
++ok()  { printf '  [ok]   %s\n' "$1"; PASS=$((PASS+1)); }
++bad() { printf '  [FAIL] %s\n' "$1"; FAIL=$((FAIL+1)); FAILED="${FAILED}    - $1
++"; }
++
++init_repo() {
++  rm -rf "$TMP/scratch"
++  mkdir -p "$TMP/scratch"
++  cd "$TMP/scratch" || exit 1
++  git init -q
++  git config user.email "selftest@example.com"
++  git config user.name  "selftest"
++  git config commit.gpgsign false
++  git config core.hooksPath "$HOOKS_DIR"
++  echo seed > seed.txt
++  git add seed.txt
++  # --no-verify to skip our hooks for the seed commit (no AI-Task trailer).
++  git commit -q --no-verify -m "seed"
++}
++
++write_task() {
++  # write_task <task> <status> <review_verdict> [dlog_marker]
++  local task="$1" status="$2" review="$3" dlog="${4:-}"
++  local dir="ai_coding/active/$task"
++  mkdir -p "$dir"
++  printf 'progress\n' > "$dir/PROGRESS.md"
++  printf '%s\n' "$status" > "$dir/STATUS"
++  printf '%s' "$dlog" > "$dir/disagreements.log"
++  printf 'diff body\n' > "$dir/diff.patch"
++  printf 'review body\n\nVERDICT: %s\n' "$review" > "$dir/review_local.md"
++  git add "$dir"
++}
++
++run_pre()  { "$HOOKS_DIR/pre-commit"; }
++expect_pre_pass() {
++  if run_pre >/dev/null 2>&1; then ok "$1"; else bad "$1 (pre-commit unexpectedly rejected)"; fi
++}
++expect_pre_fail() {
++  if run_pre >/dev/null 2>&1; then bad "$1 (pre-commit unexpectedly accepted)"; else ok "$1"; fi
++}
++
++run_commit_msg() {
++  # $1 = message file (must already exist), $2 = optional source
++  "$HOOKS_DIR/commit-msg" "$1" "${2:-}"
++}
++write_msg() {
++  # write_msg <path> <task> <verdict>
++  local f="$1" t="$2" v="$3"
++  printf 'feat: scratch\n\nAI-Verdict: %s\nAI-Task: %s\n' "$v" "$t" > "$f"
++}
++expect_msg_pass() {
++  if run_commit_msg "$1" >/dev/null 2>&1; then ok "$2"; else bad "$2 (commit-msg unexpectedly rejected)"; fi
++}
++expect_msg_fail() {
++  if run_commit_msg "$1" >/dev/null 2>&1; then bad "$2 (commit-msg unexpectedly accepted)"; else ok "$2"; fi
++}
++
++# =============================================================================
++# PRE-COMMIT TEST CASES
++# =============================================================================
++printf 'pre-commit cases:\n'
++
++# 1. Golden path — all artifacts present, staged, internally consistent.
++init_repo
++write_task "ok-task" PASS PASS ""
++expect_pre_pass "01 golden path accepts"
++
++# 2. Missing PROGRESS.md.
++init_repo
++write_task "no-progress" PASS PASS ""
++rm  ai_coding/active/no-progress/PROGRESS.md
++git rm -q --cached ai_coding/active/no-progress/PROGRESS.md
++expect_pre_fail "02 missing PROGRESS.md rejects"
++
++# 3. Missing STATUS.
++init_repo
++write_task "no-status" PASS PASS ""
++rm  ai_coding/active/no-status/STATUS
++git rm -q --cached ai_coding/active/no-status/STATUS
++expect_pre_fail "03 missing STATUS rejects"
++
++# 4. Missing disagreements.log.
++init_repo
++write_task "no-dlog" PASS PASS ""
++rm  ai_coding/active/no-dlog/disagreements.log
++git rm -q --cached ai_coding/active/no-dlog/disagreements.log
++expect_pre_fail "04 missing disagreements.log rejects"
++
++# 5. Missing diff.patch.
++init_repo
++write_task "no-diff" PASS PASS ""
++rm  ai_coding/active/no-diff/diff.patch
++git rm -q --cached ai_coding/active/no-diff/diff.patch
++expect_pre_fail "05 missing diff.patch rejects"
++
++# 6. Missing review_local.md.
++init_repo
++write_task "no-review" PASS PASS ""
++rm  ai_coding/active/no-review/review_local.md
++git rm -q --cached ai_coding/active/no-review/review_local.md
++expect_pre_fail "06 missing review_local.md rejects"
++
++# 7. STATUS present on disk, not staged.
++init_repo
++write_task "status-unstaged" PASS PASS ""
++git rm -q --cached ai_coding/active/status-unstaged/STATUS
++expect_pre_fail "07 STATUS present on disk but unstaged rejects"
++
++# 8. STATUS contents malformed.
++init_repo
++write_task "bad-status" PASS PASS ""
++printf 'FOOBAR\n' > ai_coding/active/bad-status/STATUS
++git add ai_coding/active/bad-status/STATUS
++expect_pre_fail "08 STATUS contents 'FOOBAR' rejects"
++
++# 9. review_local.md VERDICT: FAIL with no [OVERRIDE] in disagreements.log.
++init_repo
++write_task "fail-no-override" OVERRIDE FAIL ""
++expect_pre_fail "09 review FAIL without [OVERRIDE]/[CAP_REACHED] rejects"
++
++# 10. review_local.md VERDICT: FAIL with valid OVERRIDE override is accepted.
++init_repo
++write_task "fail-with-override" OVERRIDE FAIL "[OVERRIDE] reason"
++expect_pre_pass "10 review FAIL + STATUS=OVERRIDE + [OVERRIDE] in disagreements accepts"
++
++# Helper: rename ai_coding/active/<task> → ai_coding/archive/<task> using
++# OS mv + git add -A (Git for Windows' `git mv` is broken on directories;
++# rename detection via -M collapses the staged delete+add back to a rename).
++closeout_rename() {
++  local task="$1"
++  mkdir -p "ai_coding/archive/$task"
++  mv "ai_coding/active/$task"/* "ai_coding/archive/$task"/
++  rmdir "ai_coding/active/$task"
++  git add -A "ai_coding/active/$task" "ai_coding/archive/$task"
++}
++
++# 11. Close-out pure rename ai_coding/active/x → ai_coding/archive/x.
++init_repo
++mkdir -p ai_coding/active/oldtask
++printf 'progress\n' > ai_coding/active/oldtask/PROGRESS.md
++git add ai_coding/active/oldtask
++git commit -q --no-verify -m "set up oldtask"
++closeout_rename oldtask
++expect_pre_pass "11 pure close-out rename accepts (exempt)"
++
++# 12. Close-out rename + an unrelated non-ai_coding edit (NOT pure close-out,
++#     and no active/<task>/ paths touched) → still accepts since no task touched.
++init_repo
++mkdir -p ai_coding/active/oldtask2
++printf 'progress\n' > ai_coding/active/oldtask2/PROGRESS.md
++git add ai_coding/active/oldtask2
++git commit -q --no-verify -m "set up oldtask2"
++closeout_rename oldtask2
++printf 'hi\n' > unrelated.txt
++git add unrelated.txt
++expect_pre_pass "12 close-out rename + unrelated non-task file accepts"
++
++# 13. No ai_coding paths staged at all.
++init_repo
++printf 'x\n' > unrelated.txt
++git add unrelated.txt
++expect_pre_pass "13 no ai_coding paths staged accepts"
++
++# 13a. Missing VERDICT line + STATUS=PASS → reject. The PASS path must not
++#      silently accept reviews that lack a parseable verdict.
++init_repo
++write_task "no-verdict-pass" PASS PASS ""
++# Strip the VERDICT line out of review_local.md.
++sed -i '/^VERDICT:/d' ai_coding/active/no-verdict-pass/review_local.md
++git add ai_coding/active/no-verdict-pass/review_local.md
++expect_pre_fail "13a missing VERDICT line + STATUS=PASS rejects"
++
++# 13b. Missing VERDICT line + STATUS=OVERRIDE + [OVERRIDE] in disagreements.log
++#      → accept. §6 escape hatch must survive a model that misbehaves on the
++#      VERDICT contract. This is the regression pin that protects the OVERRIDE
++#      path against future hook tightening.
++init_repo
++write_task "no-verdict-override" OVERRIDE PASS "[OVERRIDE] reason"
++sed -i '/^VERDICT:/d' ai_coding/active/no-verdict-override/review_local.md
++git add ai_coding/active/no-verdict-override/review_local.md
++expect_pre_pass "13b missing VERDICT line + STATUS=OVERRIDE + [OVERRIDE] accepts"
++
++# =============================================================================
++# COMMIT-MSG TEST CASES
++# =============================================================================
++printf 'commit-msg cases:\n'
++
++# 14. Trailers + STATUS match (golden).
++init_repo
++write_task "good" PASS PASS ""
++write_msg msg.txt good PASS
++expect_msg_pass msg.txt "14 trailers + STATUS=PASS match accepts"
++
++# 15. Missing trailers.
++init_repo
++printf 'feat: no trailers\n' > msg.txt
++expect_msg_fail msg.txt "15 missing trailers rejects"
++
++# 16. Malformed verdict.
++init_repo
++write_task "good2" PASS PASS ""
++write_msg msg.txt good2 SOMETHING
++expect_msg_fail msg.txt "16 malformed AI-Verdict rejects"
++
++# 17. STATUS vs AI-Verdict mismatch.
++init_repo
++write_task "mismatch" PASS PASS ""
++write_msg msg.txt mismatch CAP_REACHED
++expect_msg_fail msg.txt "17 STATUS=PASS but AI-Verdict=CAP_REACHED rejects"
++
++# 18. review_local.md VERDICT: FAIL but AI-Verdict=PASS (should reject).
++init_repo
++write_task "review-fail-but-pass-trailer" OVERRIDE FAIL "[OVERRIDE] x"
++# Doctor STATUS to PASS so the STATUS↔trailer check doesn't fire first.
++printf 'PASS\n' > ai_coding/active/review-fail-but-pass-trailer/STATUS
++git add ai_coding/active/review-fail-but-pass-trailer/STATUS
++write_msg msg.txt review-fail-but-pass-trailer PASS
++expect_msg_fail msg.txt "18 review FAIL but AI-Verdict=PASS rejects"
++
++# 19. Close-out commit-msg shape — pure rename → exempt from consistency checks
++#     (but still requires trailers, which we provide).
++init_repo
++mkdir -p ai_coding/active/oldtask3
++printf 'progress\n' > ai_coding/active/oldtask3/PROGRESS.md
++git add ai_coding/active/oldtask3
++git commit -q --no-verify -m "set up oldtask3"
++closeout_rename oldtask3
++# Close-out task name in trailer differs from the archived task — fine, since
++# the consistency checks against ai_coding/active/oldtask3/STATUS are skipped.
++write_msg msg.txt archive-oldtask3 PASS
++expect_msg_pass msg.txt "19 close-out commit-msg accepts with bare trailers"
++
++# =============================================================================
++# POST-COMMIT TEST CASES — the heart of fix B.
++# =============================================================================
++printf 'post-commit cases:\n'
++
++# 20. Archive-only routing: archive/<task>/ exists, active/<task>/ does not.
++#     A subsequent commit with AI-Task: <task> must NOT recreate an active
++#     stub — diff must land in archive/<task>/.
++init_repo
++mkdir -p ai_coding/archive/already-archived
++printf 'old\n' > ai_coding/archive/already-archived/PROGRESS.md
++git add ai_coding/archive/already-archived
++git commit -q --no-verify -m "prep already-archived"
++printf 'change\n' > scratch.txt
++git add scratch.txt
++git commit -q --no-verify -m "scratch
++
++AI-Verdict: PASS
++AI-Task: already-archived"
++diff_in_archive=$(ls ai_coding/archive/already-archived/diff_*.patch 2>/dev/null | wc -l)
++active_dir_exists=0
++[ -d ai_coding/active/already-archived ] && active_dir_exists=1
++if [ "$diff_in_archive" -ge 1 ] && [ "$active_dir_exists" -eq 0 ]; then
++  ok "20 routing: archive-only → diff in archive, no active stub"
++else
++  bad "20 routing: archive-only (diff_in_archive=$diff_in_archive active_dir_exists=$active_dir_exists)"
++fi
++
++# 21. CRITICAL: close-out commit (rename active/x → archive/x) → routes to
++#     archive/x, NOT active/x. Pins fix B against regression.
++init_repo
++mkdir -p ai_coding/active/closing-task
++printf 'progress\n' > ai_coding/active/closing-task/PROGRESS.md
++git add ai_coding/active/closing-task
++git commit -q --no-verify -m "set up closing-task"
++closeout_rename closing-task
++git commit -q --no-verify -m "close out closing-task
++
++AI-Verdict: PASS
++AI-Task: closing-task"
++diff_in_archive=$(ls ai_coding/archive/closing-task/diff_*.patch 2>/dev/null | wc -l)
++active_dir_exists=0
++[ -d ai_coding/active/closing-task ] && active_dir_exists=1
++if [ "$diff_in_archive" -ge 1 ] && [ "$active_dir_exists" -eq 0 ]; then
++  ok "21 close-out rename → diff in archive, no active stub (fix B)"
++else
++  bad "21 close-out rename (diff_in_archive=$diff_in_archive active_dir_exists=$active_dir_exists)"
++fi
++
++# 22. Active-exists routing: standard case.
++init_repo
++mkdir -p ai_coding/active/normal-task
++printf 'progress\n' > ai_coding/active/normal-task/PROGRESS.md
++git add ai_coding/active/normal-task
++git commit -q --no-verify -m "set up normal-task"
++printf 'edit\n' > note.txt
++git add note.txt
++git commit -q --no-verify -m "scratch
++
++AI-Verdict: PASS
++AI-Task: normal-task"
++diff_in_active=$(ls ai_coding/active/normal-task/diff_*.patch 2>/dev/null | wc -l)
++if [ "$diff_in_active" -ge 1 ]; then
++  ok "22 routing: active exists → diff in active"
++else
++  bad "22 routing: active exists (diff_in_active=$diff_in_active)"
++fi
++
++# 23. Fallback routing: neither active/<task>/ nor archive/<task>/ exists.
++init_repo
++printf 'edit\n' > note.txt
++git add note.txt
++git commit -q --no-verify -m "scratch
++
++AI-Verdict: PASS
++AI-Task: brand-new-task"
++diff_in_active=$(ls ai_coding/active/brand-new-task/diff_*.patch 2>/dev/null | wc -l)
++if [ "$diff_in_active" -ge 1 ]; then
++  ok "23 routing: neither exists → fallback to active"
++else
++  bad "23 routing: neither exists (diff_in_active=$diff_in_active)"
++fi
++
++# =============================================================================
++# SUMMARY
++# =============================================================================
++printf '\n'
++printf 'hooks-selftest: %d passed, %d failed\n' "$PASS" "$FAIL"
++if [ "$FAIL" -ne 0 ]; then
++  printf 'failed cases:\n%s' "$FAILED"
++  exit 1
++fi
++exit 0
+diff --git a/tools/hooks/commit-msg b/tools/hooks/commit-msg
+new file mode 100755
+index 0000000..8965c16
+--- /dev/null
++++ b/tools/hooks/commit-msg
+@@ -0,0 +1,163 @@
++#!/usr/bin/env sh
++# commit-msg — enforce CLAUDE.md §7 trailers AND the trailer-consistency
++# checks that need both the commit message and the on-disk artifacts.
++#
++# Migrated from .git/hooks/commit-msg into version control so the rules
++# can't drift per-clone. Hand-in-hand with tools/hooks/pre-commit, which
++# owns the filesystem-only artifact checks (presence, staging, STATUS
++# token validity, review_local.md ↔ disagreements.log).
++#
++# This hook adds, on top of the original trailer-existence checks:
++#   * If an AI-Task is named and ai_coding/active/<task>/STATUS exists,
++#     STATUS contents MUST equal the AI-Verdict trailer value.
++#   * If review_local.md ends with VERDICT: FAIL, AI-Verdict MUST be
++#     OVERRIDE or CAP_REACHED (matches CLAUDE.md §6 allowed paths).
++#
++# Constraints:
++#   * POSIX-sh safe (Git for Windows MSYS bash).
++#   * Skip only on the git-supplied source indicator (merge) — never on
++#     branch name. Exit 0 to accept, non-zero to reject.
++
++set -u
++
++MSG_FILE="$1"
++[ -n "${MSG_FILE:-}" ] && [ -f "$MSG_FILE" ] || exit 0
++
++SRC="${2:-}"
++if [ "$SRC" = "merge" ]; then
++  exit 0
++fi
++
++REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
++MSG="$(cat "$MSG_FILE")"
++
++TASK="$(printf '%s\n' "$MSG" | grep -E '^AI-Task:' | head -1 \
++        | sed 's/^AI-Task:[[:space:]]*//' | tr -d '\r')"
++VERDICT="$(printf '%s\n' "$MSG" | grep -E '^AI-Verdict:' | head -1 \
++        | sed 's/^AI-Verdict:[[:space:]]*//' | tr -d '\r')"
++
++FAIL=0
++ERR=""
++
++# --- 1. Trailer existence (original §7 enforcement). -------------------------
++if [ -z "$TASK" ]; then
++  ERR="${ERR}  - Missing 'AI-Task: <task>' trailer.
++"
++  FAIL=1
++fi
++
++if [ -z "$VERDICT" ]; then
++  ERR="${ERR}  - Missing 'AI-Verdict: PASS|CAP_REACHED|OVERRIDE' trailer.
++"
++  FAIL=1
++else
++  case "$VERDICT" in
++    PASS|CAP_REACHED|OVERRIDE) : ;;
++    *)
++      ERR="${ERR}  - Malformed 'AI-Verdict: $VERDICT' (must be PASS, CAP_REACHED, or OVERRIDE).
++"
++      FAIL=1
++      ;;
++  esac
++fi
++
++# Hard-stop here if §7 trailers are missing — downstream consistency checks
++# would just produce noise.
++if [ "$FAIL" -ne 0 ]; then
++  printf 'commit rejected by tools/hooks/commit-msg (CLAUDE.md §7):\n%s\n' "$ERR" >&2
++  printf 'Required trailers at the end of the commit message:\n' >&2
++  printf '  AI-Verdict: PASS | CAP_REACHED | OVERRIDE\n' >&2
++  printf '  AI-Task: <task>\n' >&2
++  exit 1
++fi
++
++# --- 2. Close-out exemption (mirrors pre-commit). ----------------------------
++# Pure rename ai_coding/active/<x>/... → ai_coding/archive/<x>/... → skip
++# the trailer-consistency checks. The close-out task itself still has to
++# carry valid trailers (enforced above).
++STAGED_NS="$(git diff --cached --name-status -M 2>/dev/null || true)"
++if [ -n "$STAGED_NS" ]; then
++  ALL_CLOSEOUT=1
++  SAW_RENAME=0
++  while IFS= read -r line; do
++    [ -z "$line" ] && continue
++    case "$line" in
++      R*)
++        SAW_RENAME=1
++        OLDP=$(printf '%s' "$line" | awk -F'\t' '{print $2}')
++        NEWP=$(printf '%s' "$line" | awk -F'\t' '{print $3}')
++        OLD_TASK=$(printf '%s' "$OLDP" \
++                   | sed -n 's|^ai_coding/active/\([^/]*\)/.*|\1|p')
++        NEW_TASK=$(printf '%s' "$NEWP" \
++                   | sed -n 's|^ai_coding/archive/\([^/]*\)/.*|\1|p')
++        if [ -z "$OLD_TASK" ] || [ -z "$NEW_TASK" ] \
++           || [ "$OLD_TASK" != "$NEW_TASK" ]; then
++          ALL_CLOSEOUT=0
++          break
++        fi
++        ;;
++      *)
++        ALL_CLOSEOUT=0
++        break
++        ;;
++    esac
++  done <<EOF
++$STAGED_NS
++EOF
++  if [ "$SAW_RENAME" = "1" ] && [ "$ALL_CLOSEOUT" = "1" ]; then
++    exit 0
++  fi
++fi
++
++# --- 3. STATUS ↔ AI-Verdict consistency. -------------------------------------
++TASK_DIR="$REPO_ROOT/ai_coding/active/$TASK"
++STATUS_FP="$TASK_DIR/STATUS"
++if [ -f "$STATUS_FP" ]; then
++  STATUS=$(tr -d ' \t\r\n' < "$STATUS_FP")
++  if [ "$STATUS" != "$VERDICT" ]; then
++    ERR="${ERR}  - STATUS='$STATUS' but AI-Verdict='$VERDICT' (must match).
++"
++    FAIL=1
++  fi
++fi
++
++# --- 4. review_local.md VERDICT ↔ AI-Verdict consistency. --------------------
++REVIEW_FP="$TASK_DIR/review_local.md"
++if [ -f "$REVIEW_FP" ]; then
++  LAST_V=$(grep -E '^VERDICT:' "$REVIEW_FP" | tail -1 \
++           | sed 's/^VERDICT:[[:space:]]*//' | tr -d ' \t\r\n')
++  case "$LAST_V" in
++    PASS)
++      if [ "$VERDICT" != "PASS" ]; then
++        ERR="${ERR}  - review_local.md last VERDICT: PASS but AI-Verdict='$VERDICT' (must be PASS).
++"
++        FAIL=1
++      fi
++      ;;
++    FAIL)
++      if [ "$VERDICT" != "OVERRIDE" ] && [ "$VERDICT" != "CAP_REACHED" ]; then
++        ERR="${ERR}  - review_local.md last VERDICT: FAIL but AI-Verdict='$VERDICT' (must be OVERRIDE or CAP_REACHED).
++"
++        FAIL=1
++      fi
++      ;;
++    ""|*)
++      # Missing or malformed VERDICT line. reviewer.py fail-safes to FAIL
++      # when it can't parse, so the AI-Verdict trailer must reflect the
++      # §6 escape path: OVERRIDE or CAP_REACHED. pre-commit independently
++      # ensures disagreements.log carries the matching marker.
++      if [ "$VERDICT" != "OVERRIDE" ] && [ "$VERDICT" != "CAP_REACHED" ]; then
++        ERR="${ERR}  - review_local.md has no usable VERDICT line but AI-Verdict='$VERDICT' (must be OVERRIDE or CAP_REACHED).
++"
++        FAIL=1
++      fi
++      ;;
++  esac
++fi
++
++if [ "$FAIL" -ne 0 ]; then
++  printf 'commit rejected by tools/hooks/commit-msg (CLAUDE.md §6-§7):\n%s\n' "$ERR" >&2
++  exit 1
++fi
++
++exit 0
+diff --git a/tools/hooks/post-commit b/tools/hooks/post-commit
+new file mode 100755
+index 0000000..71410f1
+--- /dev/null
++++ b/tools/hooks/post-commit
+@@ -0,0 +1,107 @@
++#!/usr/bin/env sh
++# post-commit — route the just-committed diff using the AI-Task trailer.
++#
++# Migrated from .git/hooks/post-commit into version control. While moving,
++# fixed routing bug B: the original unconditionally re-created
++# ai_coding/active/<task>/ even when the task folder had already been moved
++# to ai_coding/archive/<task>/, leaving an empty active stub on every
++# close-out commit (e.g. cbacfc2 on chore/archive-commit-msg-trailer-hook).
++#
++# Tri-branch routing (replaces the buggy unconditional mkdir):
++#   1. ai_coding/active/<task>/  exists → route there.
++#   2. ai_coding/archive/<task>/ exists → route there.
++#   3. Neither → fall back to creating ai_coding/active/<task>/.
++# The hook's stated purpose is to follow the task folder wherever it
++# currently lives, NOT to pin every routed diff to active/.
++#
++# Constraints:
++#   * POSIX-sh safe (Git for Windows MSYS bash).
++#   * Non-blocking: must return immediately, must never fail a commit.
++#   * Notifications are fire-and-forget; missing python is logged, not fatal.
++
++set -u
++
++REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
++AI_DIR="$REPO_ROOT/ai_coding"
++ACTIVE_DIR="$AI_DIR/active"
++ARCHIVE_DIR="$AI_DIR/archive"
++UNROUTED_LOG="$AI_DIR/UNROUTED.log"
++mkdir -p "$AI_DIR" 2>/dev/null || true
++
++SHA="$(git rev-parse HEAD 2>/dev/null)"
++SHORT="$(git rev-parse --short HEAD 2>/dev/null)"
++MSG="$(git log -1 --format=%B 2>/dev/null)"
++TS="$(date -u +%Y%m%dT%H%M%SZ)"
++
++TASK="$(printf '%s\n' "$MSG" | grep -E '^AI-Task:' | head -1 \
++        | sed 's/^AI-Task:[[:space:]]*//' | tr -d '\r')"
++VERDICT="$(printf '%s\n' "$MSG" | grep -E '^AI-Verdict:' | head -1 \
++        | sed 's/^AI-Verdict:[[:space:]]*//' | tr -d '\r')"
++
++find_python() {
++  for cand in \
++      "$REPO_ROOT/.venv/Scripts/python.exe" \
++      "$REPO_ROOT/.venv/bin/python" \
++      "python" "py" "python3"; do
++    if command -v "$cand" >/dev/null 2>&1 || [ -x "$cand" ]; then
++      printf '%s' "$cand"
++      return 0
++    fi
++  done
++  return 1
++}
++
++fire_notify() {
++  # $1=title $2=message $3=urgent(0|1)
++  PY="$(find_python || true)"
++  if [ -z "$PY" ]; then
++    printf '[%s] notify skipped (no python found): %s: %s\n' \
++      "$TS" "$1" "$2" >> "$AI_DIR/notify.log" 2>/dev/null || true
++    return 0
++  fi
++  ( "$PY" "$AI_DIR/notify.py" "$1" "$2" "$3" \
++      >/dev/null 2>>"$AI_DIR/notify.log" & ) >/dev/null 2>&1
++}
++
++if [ -z "$TASK" ]; then
++  printf '[%s] %s missing AI-Task trailer\n' "$TS" "$SHA" >> "$UNROUTED_LOG"
++  fire_notify "Commit not routed" "Missing AI-Task trailer on $SHORT" 1
++  exit 0
++fi
++
++# --- Tri-branch routing (fix B). ---------------------------------------------
++if [ -d "$ACTIVE_DIR/$TASK" ]; then
++  TASK_DIR="$ACTIVE_DIR/$TASK"
++elif [ -d "$ARCHIVE_DIR/$TASK" ]; then
++  TASK_DIR="$ARCHIVE_DIR/$TASK"
++else
++  TASK_DIR="$ACTIVE_DIR/$TASK"
++  mkdir -p "$TASK_DIR" 2>/dev/null || true
++fi
++
++DIFF_FILE="$TASK_DIR/diff_${TS}_${SHORT}.patch"
++
++EMPTY_TREE="$(git hash-object -t tree /dev/null 2>/dev/null \
++              || printf '4b825dc642cb6eb9a060e54bf8d69288fbee4904')"
++if git rev-parse --verify -q HEAD~1 >/dev/null 2>&1; then
++  git diff HEAD~1 HEAD > "$DIFF_FILE" 2>/dev/null \
++    || printf '[%s] git diff failed for %s\n' "$TS" "$SHA" \
++         >> "$AI_DIR/notify.log"
++else
++  git diff "$EMPTY_TREE" HEAD > "$DIFF_FILE" 2>/dev/null \
++    || printf '[%s] first-commit diff failed for %s\n' "$TS" "$SHA" \
++         >> "$AI_DIR/notify.log"
++fi
++
++case "$VERDICT" in
++  CAP_REACHED)
++    fire_notify "Commit routed — CAP_REACHED" \
++      "Task '$TASK' commit $SHORT needs review." 1 ;;
++  PASS|OVERRIDE|"")
++    fire_notify "Commit routed: $TASK" "$SHORT (${VERDICT:-no-verdict})" 0 ;;
++  *)
++    fire_notify "Commit routed (unknown verdict)" \
++      "Task '$TASK' commit $SHORT verdict='$VERDICT'" 1 ;;
++esac
++
++exit 0
+diff --git a/tools/hooks/pre-commit b/tools/hooks/pre-commit
+new file mode 100755
+index 0000000..b9ed6b6
+--- /dev/null
++++ b/tools/hooks/pre-commit
+@@ -0,0 +1,204 @@
++#!/usr/bin/env sh
++# pre-commit — enforce CLAUDE.md §2-§6 task-folder artifacts on every commit.
++#
++# Why this exists: CLAUDE.md is prose, not enforcement. commit-msg only
++# guards §7 trailers. Nothing prevented commits that skipped §2 artifact
++# capture or that landed with a failing §6 review. This hook closes that gap.
++#
++# Hook split (deliberate):
++#   * pre-commit (this file) inspects the staged index and on-disk files.
++#     It cannot read the commit message — git doesn't surface the message
++#     at pre-commit time. So it owns the filesystem-only checks: artifact
++#     presence + staging, STATUS token validity, review_local.md ↔
++#     disagreements.log consistency.
++#   * commit-msg owns the checks that need both the message and the disk:
++#     AI-Verdict ↔ STATUS file match, AI-Verdict consistency with
++#     review_local.md VERDICT.
++#
++# Special case — close-out commits: a commit whose staged set is purely
++# renames of ai_coding/active/<x>/... → ai_coding/archive/<x>/... is §11
++# bookkeeping. The source folder already passed §2-§7 in an earlier commit.
++# Such commits are exempted from all checks below.
++#
++# Constraints:
++#   * POSIX-sh safe (Git for Windows MSYS bash). No bashisms.
++#   * Disk-only. NEVER blocks on missing python / missing ollama / network.
++#   * Exit 0 to accept, non-zero to reject.
++
++set -u
++
++GIT_DIR="$(git rev-parse --git-dir 2>/dev/null)" || exit 0
++# Merge / cherry-pick / revert in-progress: not pipeline work, don't gate.
++if [ -f "$GIT_DIR/MERGE_HEAD" ] || [ -f "$GIT_DIR/CHERRY_PICK_HEAD" ] \
++   || [ -f "$GIT_DIR/REVERT_HEAD" ]; then
++  exit 0
++fi
++
++REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
++
++# --- 1. Pull the staged set, with rename detection on. -----------------------
++# `--name-status -M` emits one of:
++#   M\tpath        A\tpath        D\tpath        R<score>\told\tnew
++STAGED_NS="$(git diff --cached --name-status -M 2>/dev/null || true)"
++if [ -z "$STAGED_NS" ]; then
++  exit 0
++fi
++STAGED_PATHS="$(git diff --cached --name-only 2>/dev/null || true)"
++
++# --- 2. Close-out exemption. -------------------------------------------------
++# Every entry must be R<score>\tai_coding/active/<x>/...\tai_coding/archive/<x>/...
++# for matching <x>. Any non-rename, or any rename that doesn't fit the shape,
++# disqualifies the commit from the exemption (it's mixed work, not bookkeeping).
++ALL_CLOSEOUT=1
++SAW_RENAME=0
++while IFS= read -r line; do
++  [ -z "$line" ] && continue
++  case "$line" in
++    R*)
++      SAW_RENAME=1
++      OLDP=$(printf '%s' "$line" | awk -F'\t' '{print $2}')
++      NEWP=$(printf '%s' "$line" | awk -F'\t' '{print $3}')
++      OLD_TASK=$(printf '%s' "$OLDP" \
++                 | sed -n 's|^ai_coding/active/\([^/]*\)/.*|\1|p')
++      NEW_TASK=$(printf '%s' "$NEWP" \
++                 | sed -n 's|^ai_coding/archive/\([^/]*\)/.*|\1|p')
++      if [ -z "$OLD_TASK" ] || [ -z "$NEW_TASK" ] \
++         || [ "$OLD_TASK" != "$NEW_TASK" ]; then
++        ALL_CLOSEOUT=0
++        break
++      fi
++      ;;
++    *)
++      ALL_CLOSEOUT=0
++      break
++      ;;
++  esac
++done <<EOF
++$STAGED_NS
++EOF
++
++if [ "$SAW_RENAME" = "1" ] && [ "$ALL_CLOSEOUT" = "1" ]; then
++  exit 0
++fi
++
++# --- 3. Identify the active tasks touched by this commit. --------------------
++# A task is "touched" iff at least one staged path lives under
++# ai_coding/active/<task>/. `--name-only` lists only the post-rename path, so
++# moves OUT of active/ don't show up here (they're handled by the close-out
++# branch above or by being legitimate non-task edits elsewhere).
++TASKS="$(printf '%s\n' "$STAGED_PATHS" \
++         | sed -n 's|^ai_coding/active/\([^/]*\)/.*|\1|p' \
++         | sort -u)"
++if [ -z "$TASKS" ]; then
++  exit 0
++fi
++
++# --- 4. For each touched task, enforce the §2 artifacts. ---------------------
++FAIL=0
++ERR=""
++
++is_staged() {
++  # $1 = repo-relative path. Exit 0 iff staged.
++  printf '%s\n' "$STAGED_PATHS" | grep -Fxq -- "$1"
++}
++
++for TASK in $TASKS; do
++  DIR="ai_coding/active/$TASK"
++
++  for FN in PROGRESS.md STATUS disagreements.log diff.patch review_local.md; do
++    FP="$DIR/$FN"
++    if [ ! -f "$REPO_ROOT/$FP" ]; then
++      ERR="${ERR}  - $TASK: missing $FN on disk
++"
++      FAIL=1
++      continue
++    fi
++    if ! is_staged "$FP"; then
++      ERR="${ERR}  - $TASK: $FN exists on disk but is not staged
++"
++      FAIL=1
++    fi
++  done
++
++  STATUS_FP="$REPO_ROOT/$DIR/STATUS"
++  STATUS=""
++  if [ -f "$STATUS_FP" ]; then
++    STATUS=$(tr -d ' \t\r\n' < "$STATUS_FP")
++    case "$STATUS" in
++      PASS|CAP_REACHED|OVERRIDE) : ;;
++      *)
++        ERR="${ERR}  - $TASK: STATUS='$STATUS' (must be PASS | CAP_REACHED | OVERRIDE)
++"
++        FAIL=1
++        ;;
++    esac
++  fi
++
++  REVIEW_FP="$REPO_ROOT/$DIR/review_local.md"
++  if [ -f "$REVIEW_FP" ]; then
++    LAST_V=$(grep -E '^VERDICT:' "$REVIEW_FP" | tail -1 \
++             | sed 's/^VERDICT:[[:space:]]*//' | tr -d ' \t\r\n')
++    case "$LAST_V" in
++      PASS)
++        : ;;
++      FAIL)
++        DLOG="$REPO_ROOT/$DIR/disagreements.log"
++        OV_OK=0
++        if [ -f "$DLOG" ] && \
++           ( grep -qF '[OVERRIDE]' "$DLOG" \
++             || grep -qF '[CAP_REACHED]' "$DLOG" ); then
++          OV_OK=1
++        fi
++        if [ "$OV_OK" -ne 1 ]; then
++          ERR="${ERR}  - $TASK: review_local.md ends with VERDICT: FAIL but disagreements.log has no [OVERRIDE] or [CAP_REACHED] entry
++"
++          FAIL=1
++        fi
++        if [ -n "$STATUS" ] \
++           && [ "$STATUS" != "OVERRIDE" ] && [ "$STATUS" != "CAP_REACHED" ]; then
++          ERR="${ERR}  - $TASK: review_local.md VERDICT: FAIL but STATUS='$STATUS' (must be OVERRIDE or CAP_REACHED)
++"
++          FAIL=1
++        fi
++        ;;
++      ""|*)
++        # No VERDICT line — or a malformed one — typically means the model
++        # broke its §6 contract (reviewer.py fail-safes to FAIL when it
++        # can't parse). The OVERRIDE / CAP_REACHED escape hatch in §6 must
++        # still work in that case, otherwise the hook bricks recovery.
++        # Treat as if the review is FAIL: require STATUS to be OVERRIDE or
++        # CAP_REACHED and disagreements.log to carry the matching marker.
++        DLOG="$REPO_ROOT/$DIR/disagreements.log"
++        OV_OK=0
++        if [ -f "$DLOG" ] && \
++           ( grep -qF '[OVERRIDE]' "$DLOG" \
++             || grep -qF '[CAP_REACHED]' "$DLOG" ); then
++          OV_OK=1
++        fi
++        if [ -n "$STATUS" ] \
++           && [ "$STATUS" != "OVERRIDE" ] && [ "$STATUS" != "CAP_REACHED" ]; then
++          if [ -z "$LAST_V" ]; then
++            ERR="${ERR}  - $TASK: review_local.md has no VERDICT: line (STATUS='$STATUS')
++"
++          else
++            ERR="${ERR}  - $TASK: review_local.md last VERDICT='$LAST_V' (must be PASS or FAIL; STATUS='$STATUS')
++"
++          fi
++          FAIL=1
++        elif [ "$OV_OK" -ne 1 ]; then
++          ERR="${ERR}  - $TASK: review_local.md lacks a usable VERDICT line and disagreements.log has no [OVERRIDE]/[CAP_REACHED] entry
++"
++          FAIL=1
++        fi
++        ;;
++    esac
++  fi
++done
++
++if [ "$FAIL" -ne 0 ]; then
++  printf 'commit rejected by tools/hooks/pre-commit (CLAUDE.md §2-§6):\n%s\n' "$ERR" >&2
++  printf 'See CLAUDE.md §2-§6 for the required task-folder artifacts.\n' >&2
++  exit 1
++fi
++
++exit 0
+diff --git a/tools/install-hooks.ps1 b/tools/install-hooks.ps1
+new file mode 100644
+index 0000000..3504e61
+--- /dev/null
++++ b/tools/install-hooks.ps1
+@@ -0,0 +1,38 @@
++# install-hooks.ps1 -- point git at tools/hooks/ so the CLAUDE.md gates fire
++# on every commit in this clone.
++#
++# Run this once after cloning. Re-run is idempotent.
++
++$ErrorActionPreference = 'Stop'
++
++$repoRoot = (& git rev-parse --show-toplevel).Trim()
++$hooksDir = Join-Path $repoRoot 'tools\hooks'
++
++if (-not (Test-Path -LiteralPath $hooksDir -PathType Container)) {
++    Write-Error "error: $hooksDir does not exist -- run from the qa_framework clone"
++    exit 1
++}
++
++$gitVer = (& git --version) -replace '^git version ', ''
++$verParts = $gitVer.Split('.')
++$major = [int]$verParts[0]
++$minor = [int]$verParts[1]
++if ($major -lt 2 -or ($major -eq 2 -and $minor -lt 9)) {
++    Write-Error "error: git $gitVer is too old; core.hooksPath needs git >= 2.9"
++    exit 1
++}
++
++foreach ($h in @('pre-commit', 'commit-msg', 'post-commit')) {
++    $p = Join-Path $hooksDir $h
++    if (-not (Test-Path -LiteralPath $p -PathType Leaf)) {
++        Write-Error "error: missing $p"
++        exit 1
++    }
++}
++
++& git config core.hooksPath tools/hooks
++
++Write-Host 'installed: core.hooksPath = tools/hooks'
++Write-Host '  pre-commit   : enforces CLAUDE.md sections 2-6 artifact presence'
++Write-Host '  commit-msg   : enforces section 7 trailers + section 6-7 trailer consistency'
++Write-Host '  post-commit  : routes the just-committed diff into the task folder'
+diff --git a/tools/install-hooks.sh b/tools/install-hooks.sh
+new file mode 100755
+index 0000000..6932e39
+--- /dev/null
++++ b/tools/install-hooks.sh
+@@ -0,0 +1,47 @@
++#!/usr/bin/env sh
++# install-hooks.sh — point git at tools/hooks/ so the CLAUDE.md gates fire
++# on every commit in this clone.
++#
++# Uses `git config core.hooksPath` (git >= 2.9). The hooks live in version
++# control, so once installed they cannot drift per-clone.
++#
++# Run this once after cloning. Re-run is idempotent.
++
++set -eu
++
++REPO_ROOT="$(git rev-parse --show-toplevel)"
++HOOKS_DIR="$REPO_ROOT/tools/hooks"
++
++if [ ! -d "$HOOKS_DIR" ]; then
++  printf 'error: %s does not exist — run from the qa_framework clone\n' \
++    "$HOOKS_DIR" >&2
++  exit 1
++fi
++
++# Refuse to silently downgrade if the user is on a git too old for hooksPath.
++GIT_VER="$(git --version | awk '{print $3}')"
++GIT_MAJOR="$(printf '%s' "$GIT_VER" | awk -F. '{print $1+0}')"
++GIT_MINOR="$(printf '%s' "$GIT_VER" | awk -F. '{print $2+0}')"
++if [ "$GIT_MAJOR" -lt 2 ] || { [ "$GIT_MAJOR" -eq 2 ] && [ "$GIT_MINOR" -lt 9 ]; }; then
++  printf 'error: git %s is too old; core.hooksPath needs git >= 2.9\n' \
++    "$GIT_VER" >&2
++  exit 1
++fi
++
++# Make sure each hook is executable in the working tree. (Git on Windows
++# ignores the FS bit but POSIX systems need it; this is what blocks the
++# "hook silently doesn't run" failure mode.)
++for h in pre-commit commit-msg post-commit; do
++  if [ ! -f "$HOOKS_DIR/$h" ]; then
++    printf 'error: missing %s\n' "$HOOKS_DIR/$h" >&2
++    exit 1
++  fi
++  chmod +x "$HOOKS_DIR/$h" 2>/dev/null || true
++done
++
++git config core.hooksPath tools/hooks
++
++printf 'installed: core.hooksPath = tools/hooks\n'
++printf '  pre-commit   : enforces CLAUDE.md §2-§6 artifact presence\n'
++printf '  commit-msg   : enforces §7 trailers + §6-§7 trailer consistency\n'
++printf '  post-commit  : routes the just-committed diff into the task folder\n'
