@@ -35,7 +35,13 @@ Branch: portable-pipeline-enforcement (cut from master at b8f022c)
 - §5 full suite: `uv run pytest` → 22/22 passed.
 
 ## Steps remaining
-- §7 commit.
+- (none — committed on branch portable-pipeline-enforcement)
+
+## Post-commit
+- §7 commit landed on portable-pipeline-enforcement; AI-Verdict: OVERRIDE.
+- Post-commit hook routed diff into this task folder (file alongside
+  diff.patch named diff_<ts>_<short-sha>.patch). Routing fix B is now
+  active for this repo's local hooks.
 
 ## §6 outcome
 - reviewer.py outer iteration 1: pytest+selftest green, model produced
