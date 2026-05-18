@@ -1,0 +1,163 @@
+#!/usr/bin/env sh
+# commit-msg — enforce CLAUDE.md §7 trailers AND the trailer-consistency
+# checks that need both the commit message and the on-disk artifacts.
+#
+# Migrated from .git/hooks/commit-msg into version control so the rules
+# can't drift per-clone. Hand-in-hand with tools/hooks/pre-commit, which
+# owns the filesystem-only artifact checks (presence, staging, STATUS
+# token validity, review_local.md ↔ disagreements.log).
+#
+# This hook adds, on top of the original trailer-existence checks:
+#   * If an AI-Task is named and ai_coding/active/<task>/STATUS exists,
+#     STATUS contents MUST equal the AI-Verdict trailer value.
+#   * If review_local.md ends with VERDICT: FAIL, AI-Verdict MUST be
+#     OVERRIDE or CAP_REACHED (matches CLAUDE.md §6 allowed paths).
+#
+# Constraints:
+#   * POSIX-sh safe (Git for Windows MSYS bash).
+#   * Skip only on the git-supplied source indicator (merge) — never on
+#     branch name. Exit 0 to accept, non-zero to reject.
+
+set -u
+
+MSG_FILE="$1"
+[ -n "${MSG_FILE:-}" ] && [ -f "$MSG_FILE" ] || exit 0
+
+SRC="${2:-}"
+if [ "$SRC" = "merge" ]; then
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+MSG="$(cat "$MSG_FILE")"
+
+TASK="$(printf '%s\n' "$MSG" | grep -E '^AI-Task:' | head -1 \
+        | sed 's/^AI-Task:[[:space:]]*//' | tr -d '\r')"
+VERDICT="$(printf '%s\n' "$MSG" | grep -E '^AI-Verdict:' | head -1 \
+        | sed 's/^AI-Verdict:[[:space:]]*//' | tr -d '\r')"
+
+FAIL=0
+ERR=""
+
+# --- 1. Trailer existence (original §7 enforcement). -------------------------
+if [ -z "$TASK" ]; then
+  ERR="${ERR}  - Missing 'AI-Task: <task>' trailer.
+"
+  FAIL=1
+fi
+
+if [ -z "$VERDICT" ]; then
+  ERR="${ERR}  - Missing 'AI-Verdict: PASS|CAP_REACHED|OVERRIDE' trailer.
+"
+  FAIL=1
+else
+  case "$VERDICT" in
+    PASS|CAP_REACHED|OVERRIDE) : ;;
+    *)
+      ERR="${ERR}  - Malformed 'AI-Verdict: $VERDICT' (must be PASS, CAP_REACHED, or OVERRIDE).
+"
+      FAIL=1
+      ;;
+  esac
+fi
+
+# Hard-stop here if §7 trailers are missing — downstream consistency checks
+# would just produce noise.
+if [ "$FAIL" -ne 0 ]; then
+  printf 'commit rejected by tools/hooks/commit-msg (CLAUDE.md §7):\n%s\n' "$ERR" >&2
+  printf 'Required trailers at the end of the commit message:\n' >&2
+  printf '  AI-Verdict: PASS | CAP_REACHED | OVERRIDE\n' >&2
+  printf '  AI-Task: <task>\n' >&2
+  exit 1
+fi
+
+# --- 2. Close-out exemption (mirrors pre-commit). ----------------------------
+# Pure rename ai_coding/active/<x>/... → ai_coding/archive/<x>/... → skip
+# the trailer-consistency checks. The close-out task itself still has to
+# carry valid trailers (enforced above).
+STAGED_NS="$(git diff --cached --name-status -M 2>/dev/null || true)"
+if [ -n "$STAGED_NS" ]; then
+  ALL_CLOSEOUT=1
+  SAW_RENAME=0
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    case "$line" in
+      R*)
+        SAW_RENAME=1
+        OLDP=$(printf '%s' "$line" | awk -F'\t' '{print $2}')
+        NEWP=$(printf '%s' "$line" | awk -F'\t' '{print $3}')
+        OLD_TASK=$(printf '%s' "$OLDP" \
+                   | sed -n 's|^ai_coding/active/\([^/]*\)/.*|\1|p')
+        NEW_TASK=$(printf '%s' "$NEWP" \
+                   | sed -n 's|^ai_coding/archive/\([^/]*\)/.*|\1|p')
+        if [ -z "$OLD_TASK" ] || [ -z "$NEW_TASK" ] \
+           || [ "$OLD_TASK" != "$NEW_TASK" ]; then
+          ALL_CLOSEOUT=0
+          break
+        fi
+        ;;
+      *)
+        ALL_CLOSEOUT=0
+        break
+        ;;
+    esac
+  done <<EOF
+$STAGED_NS
+EOF
+  if [ "$SAW_RENAME" = "1" ] && [ "$ALL_CLOSEOUT" = "1" ]; then
+    exit 0
+  fi
+fi
+
+# --- 3. STATUS ↔ AI-Verdict consistency. -------------------------------------
+TASK_DIR="$REPO_ROOT/ai_coding/active/$TASK"
+STATUS_FP="$TASK_DIR/STATUS"
+if [ -f "$STATUS_FP" ]; then
+  STATUS=$(tr -d ' \t\r\n' < "$STATUS_FP")
+  if [ "$STATUS" != "$VERDICT" ]; then
+    ERR="${ERR}  - STATUS='$STATUS' but AI-Verdict='$VERDICT' (must match).
+"
+    FAIL=1
+  fi
+fi
+
+# --- 4. review_local.md VERDICT ↔ AI-Verdict consistency. --------------------
+REVIEW_FP="$TASK_DIR/review_local.md"
+if [ -f "$REVIEW_FP" ]; then
+  LAST_V=$(grep -E '^VERDICT:' "$REVIEW_FP" | tail -1 \
+           | sed 's/^VERDICT:[[:space:]]*//' | tr -d ' \t\r\n')
+  case "$LAST_V" in
+    PASS)
+      if [ "$VERDICT" != "PASS" ]; then
+        ERR="${ERR}  - review_local.md last VERDICT: PASS but AI-Verdict='$VERDICT' (must be PASS).
+"
+        FAIL=1
+      fi
+      ;;
+    FAIL)
+      if [ "$VERDICT" != "OVERRIDE" ] && [ "$VERDICT" != "CAP_REACHED" ]; then
+        ERR="${ERR}  - review_local.md last VERDICT: FAIL but AI-Verdict='$VERDICT' (must be OVERRIDE or CAP_REACHED).
+"
+        FAIL=1
+      fi
+      ;;
+    ""|*)
+      # Missing or malformed VERDICT line. reviewer.py fail-safes to FAIL
+      # when it can't parse, so the AI-Verdict trailer must reflect the
+      # §6 escape path: OVERRIDE or CAP_REACHED. pre-commit independently
+      # ensures disagreements.log carries the matching marker.
+      if [ "$VERDICT" != "OVERRIDE" ] && [ "$VERDICT" != "CAP_REACHED" ]; then
+        ERR="${ERR}  - review_local.md has no usable VERDICT line but AI-Verdict='$VERDICT' (must be OVERRIDE or CAP_REACHED).
+"
+        FAIL=1
+      fi
+      ;;
+  esac
+fi
+
+if [ "$FAIL" -ne 0 ]; then
+  printf 'commit rejected by tools/hooks/commit-msg (CLAUDE.md §6-§7):\n%s\n' "$ERR" >&2
+  exit 1
+fi
+
+exit 0

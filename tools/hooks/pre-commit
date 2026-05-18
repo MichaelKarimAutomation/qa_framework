@@ -1,0 +1,204 @@
+#!/usr/bin/env sh
+# pre-commit — enforce CLAUDE.md §2-§6 task-folder artifacts on every commit.
+#
+# Why this exists: CLAUDE.md is prose, not enforcement. commit-msg only
+# guards §7 trailers. Nothing prevented commits that skipped §2 artifact
+# capture or that landed with a failing §6 review. This hook closes that gap.
+#
+# Hook split (deliberate):
+#   * pre-commit (this file) inspects the staged index and on-disk files.
+#     It cannot read the commit message — git doesn't surface the message
+#     at pre-commit time. So it owns the filesystem-only checks: artifact
+#     presence + staging, STATUS token validity, review_local.md ↔
+#     disagreements.log consistency.
+#   * commit-msg owns the checks that need both the message and the disk:
+#     AI-Verdict ↔ STATUS file match, AI-Verdict consistency with
+#     review_local.md VERDICT.
+#
+# Special case — close-out commits: a commit whose staged set is purely
+# renames of ai_coding/active/<x>/... → ai_coding/archive/<x>/... is §11
+# bookkeeping. The source folder already passed §2-§7 in an earlier commit.
+# Such commits are exempted from all checks below.
+#
+# Constraints:
+#   * POSIX-sh safe (Git for Windows MSYS bash). No bashisms.
+#   * Disk-only. NEVER blocks on missing python / missing ollama / network.
+#   * Exit 0 to accept, non-zero to reject.
+
+set -u
+
+GIT_DIR="$(git rev-parse --git-dir 2>/dev/null)" || exit 0
+# Merge / cherry-pick / revert in-progress: not pipeline work, don't gate.
+if [ -f "$GIT_DIR/MERGE_HEAD" ] || [ -f "$GIT_DIR/CHERRY_PICK_HEAD" ] \
+   || [ -f "$GIT_DIR/REVERT_HEAD" ]; then
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+
+# --- 1. Pull the staged set, with rename detection on. -----------------------
+# `--name-status -M` emits one of:
+#   M\tpath        A\tpath        D\tpath        R<score>\told\tnew
+STAGED_NS="$(git diff --cached --name-status -M 2>/dev/null || true)"
+if [ -z "$STAGED_NS" ]; then
+  exit 0
+fi
+STAGED_PATHS="$(git diff --cached --name-only 2>/dev/null || true)"
+
+# --- 2. Close-out exemption. -------------------------------------------------
+# Every entry must be R<score>\tai_coding/active/<x>/...\tai_coding/archive/<x>/...
+# for matching <x>. Any non-rename, or any rename that doesn't fit the shape,
+# disqualifies the commit from the exemption (it's mixed work, not bookkeeping).
+ALL_CLOSEOUT=1
+SAW_RENAME=0
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  case "$line" in
+    R*)
+      SAW_RENAME=1
+      OLDP=$(printf '%s' "$line" | awk -F'\t' '{print $2}')
+      NEWP=$(printf '%s' "$line" | awk -F'\t' '{print $3}')
+      OLD_TASK=$(printf '%s' "$OLDP" \
+                 | sed -n 's|^ai_coding/active/\([^/]*\)/.*|\1|p')
+      NEW_TASK=$(printf '%s' "$NEWP" \
+                 | sed -n 's|^ai_coding/archive/\([^/]*\)/.*|\1|p')
+      if [ -z "$OLD_TASK" ] || [ -z "$NEW_TASK" ] \
+         || [ "$OLD_TASK" != "$NEW_TASK" ]; then
+        ALL_CLOSEOUT=0
+        break
+      fi
+      ;;
+    *)
+      ALL_CLOSEOUT=0
+      break
+      ;;
+  esac
+done <<EOF
+$STAGED_NS
+EOF
+
+if [ "$SAW_RENAME" = "1" ] && [ "$ALL_CLOSEOUT" = "1" ]; then
+  exit 0
+fi
+
+# --- 3. Identify the active tasks touched by this commit. --------------------
+# A task is "touched" iff at least one staged path lives under
+# ai_coding/active/<task>/. `--name-only` lists only the post-rename path, so
+# moves OUT of active/ don't show up here (they're handled by the close-out
+# branch above or by being legitimate non-task edits elsewhere).
+TASKS="$(printf '%s\n' "$STAGED_PATHS" \
+         | sed -n 's|^ai_coding/active/\([^/]*\)/.*|\1|p' \
+         | sort -u)"
+if [ -z "$TASKS" ]; then
+  exit 0
+fi
+
+# --- 4. For each touched task, enforce the §2 artifacts. ---------------------
+FAIL=0
+ERR=""
+
+is_staged() {
+  # $1 = repo-relative path. Exit 0 iff staged.
+  printf '%s\n' "$STAGED_PATHS" | grep -Fxq -- "$1"
+}
+
+for TASK in $TASKS; do
+  DIR="ai_coding/active/$TASK"
+
+  for FN in PROGRESS.md STATUS disagreements.log diff.patch review_local.md; do
+    FP="$DIR/$FN"
+    if [ ! -f "$REPO_ROOT/$FP" ]; then
+      ERR="${ERR}  - $TASK: missing $FN on disk
+"
+      FAIL=1
+      continue
+    fi
+    if ! is_staged "$FP"; then
+      ERR="${ERR}  - $TASK: $FN exists on disk but is not staged
+"
+      FAIL=1
+    fi
+  done
+
+  STATUS_FP="$REPO_ROOT/$DIR/STATUS"
+  STATUS=""
+  if [ -f "$STATUS_FP" ]; then
+    STATUS=$(tr -d ' \t\r\n' < "$STATUS_FP")
+    case "$STATUS" in
+      PASS|CAP_REACHED|OVERRIDE) : ;;
+      *)
+        ERR="${ERR}  - $TASK: STATUS='$STATUS' (must be PASS | CAP_REACHED | OVERRIDE)
+"
+        FAIL=1
+        ;;
+    esac
+  fi
+
+  REVIEW_FP="$REPO_ROOT/$DIR/review_local.md"
+  if [ -f "$REVIEW_FP" ]; then
+    LAST_V=$(grep -E '^VERDICT:' "$REVIEW_FP" | tail -1 \
+             | sed 's/^VERDICT:[[:space:]]*//' | tr -d ' \t\r\n')
+    case "$LAST_V" in
+      PASS)
+        : ;;
+      FAIL)
+        DLOG="$REPO_ROOT/$DIR/disagreements.log"
+        OV_OK=0
+        if [ -f "$DLOG" ] && \
+           ( grep -qF '[OVERRIDE]' "$DLOG" \
+             || grep -qF '[CAP_REACHED]' "$DLOG" ); then
+          OV_OK=1
+        fi
+        if [ "$OV_OK" -ne 1 ]; then
+          ERR="${ERR}  - $TASK: review_local.md ends with VERDICT: FAIL but disagreements.log has no [OVERRIDE] or [CAP_REACHED] entry
+"
+          FAIL=1
+        fi
+        if [ -n "$STATUS" ] \
+           && [ "$STATUS" != "OVERRIDE" ] && [ "$STATUS" != "CAP_REACHED" ]; then
+          ERR="${ERR}  - $TASK: review_local.md VERDICT: FAIL but STATUS='$STATUS' (must be OVERRIDE or CAP_REACHED)
+"
+          FAIL=1
+        fi
+        ;;
+      ""|*)
+        # No VERDICT line — or a malformed one — typically means the model
+        # broke its §6 contract (reviewer.py fail-safes to FAIL when it
+        # can't parse). The OVERRIDE / CAP_REACHED escape hatch in §6 must
+        # still work in that case, otherwise the hook bricks recovery.
+        # Treat as if the review is FAIL: require STATUS to be OVERRIDE or
+        # CAP_REACHED and disagreements.log to carry the matching marker.
+        DLOG="$REPO_ROOT/$DIR/disagreements.log"
+        OV_OK=0
+        if [ -f "$DLOG" ] && \
+           ( grep -qF '[OVERRIDE]' "$DLOG" \
+             || grep -qF '[CAP_REACHED]' "$DLOG" ); then
+          OV_OK=1
+        fi
+        if [ -n "$STATUS" ] \
+           && [ "$STATUS" != "OVERRIDE" ] && [ "$STATUS" != "CAP_REACHED" ]; then
+          if [ -z "$LAST_V" ]; then
+            ERR="${ERR}  - $TASK: review_local.md has no VERDICT: line (STATUS='$STATUS')
+"
+          else
+            ERR="${ERR}  - $TASK: review_local.md last VERDICT='$LAST_V' (must be PASS or FAIL; STATUS='$STATUS')
+"
+          fi
+          FAIL=1
+        elif [ "$OV_OK" -ne 1 ]; then
+          ERR="${ERR}  - $TASK: review_local.md lacks a usable VERDICT line and disagreements.log has no [OVERRIDE]/[CAP_REACHED] entry
+"
+          FAIL=1
+        fi
+        ;;
+    esac
+  fi
+done
+
+if [ "$FAIL" -ne 0 ]; then
+  printf 'commit rejected by tools/hooks/pre-commit (CLAUDE.md §2-§6):\n%s\n' "$ERR" >&2
+  printf 'See CLAUDE.md §2-§6 for the required task-folder artifacts.\n' >&2
+  exit 1
+fi
+
+exit 0
