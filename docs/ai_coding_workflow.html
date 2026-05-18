@@ -122,9 +122,11 @@ disagreements.log, flag any [TEST_CAP_REACHED], [FULL_SUITE_FAILED],
         <strong>Move this branch's finished task folder into <code>ai_coding/archive/</code>.</strong>
         Ask Claude to do it with this prompt:
         <pre>If this branch's task folder under ai_coding/active/ has STATUS=PASS,
-move it into ai_coding/archive/. If it is tagged CAP_REACHED or
-OVERRIDE, leave it in place. Touch only this branch's folder, not any
-other task folders that happen to be in active/. Report what was moved.</pre>
+move it into ai_coding/archive/ and commit the move with the same
+AI-Verdict: PASS and AI-Task: trailers as the rest of this branch.
+If the folder is tagged CAP_REACHED or OVERRIDE, leave it in place.
+Touch only this branch's folder, not any other task folders that
+happen to be in active/. Report what was moved.</pre>
         Folders tagged <code>CAP_REACHED</code> or <code>OVERRIDE</code>
         stay in <code>active/</code> on purpose. A human handles those
         by hand. If you review one and decide to set it aside instead of
