@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Coding Workflow (Human Steps)</title>
+    <style>
+        body {
+          font-family: sans-serif;
+          margin: 20px;
+          max-width: 900px;
+        }
+        h1 {
+          margin-bottom: 0.2em;
+        }
+        h2 {
+          margin-top: 1.5em;
+          border-bottom: 1px solid #ccc;
+          padding-bottom: 0.2em;
+        }
+        ol.steps > li {
+          margin: 0.8em 0;
+        }
+        code {
+          background: #f4f4f4;
+          padding: 1px 5px;
+          border-radius: 3px;
+          font-size: 0.95em;
+        }
+        pre {
+          background: #f4f4f4;
+          padding: 8px 12px;
+          border-radius: 4px;
+          overflow-x: auto;
+        }
+        summary {
+          font-weight: bold;
+          cursor: pointer;
+          padding: 5px 0;
+          background-color: #f0f0f0;
+          border-bottom: 1px solid #ccc;
+        }
+        details {
+          margin: 0.75em 0;
+          border: 1px solid #ccc;
+          border-radius: 5px;
+          padding: 0.4em;
+          margin-left: 20px;
+        }
+        .note {
+          background: #fff8dc;
+          border-left: 4px solid #e0c060;
+          padding: 8px 12px;
+          margin: 0.75em 0;
+        }
+    </style>
+</head>
+<body>
+<h1>AI Coding Workflow (Human Steps)</h1>
+<p class="note">
+    What <strong>you</strong> do when using Claude Code in this repo. Claude
+    does the rest of the work on its own. If you want the full reasoning
+    behind any step, read <a href="../CLAUDE.md"><code>CLAUDE.md</code></a>.
+    That file is the rule book.
+</p>
+
+<h2>Steps</h2>
+<ol class="steps">
+    <li>
+        <strong>Update master and start a new branch.</strong>
+        <pre>git checkout master &amp;&amp; git pull
+git checkout -b task/short-name</pre>
+        Pick a short name written in lowercase words joined by hyphens
+        (for example <code>task/add-login-button</code>). The name should
+        say what the change is about. On Windows PowerShell, replace
+        <code>&amp;&amp;</code> with <code>;</code>.
+    </li>
+    <li>
+        <strong>Tell Claude Code what you want in plain words.</strong>
+        Just describe the change. Claude follows the pipeline on its own:
+        it creates the task folder, writes tests, runs them, asks the
+        local AI reviewer to check the work, and makes a commit with the
+        special tag lines at the bottom. Hooks back this up by blocking
+        edits outside the task folder and rejecting commits missing the
+        tag lines.
+    </li>
+    <li>
+        <strong>Watch progress in <code>ai_coding/active/&lt;your task&gt;/PROGRESS.md</code>.</strong>
+        Claude writes to this file at the important moments. You do not
+        edit it yourself. Reading it tells you what is finished and what
+        is left.
+    </li>
+    <li>
+        <strong>Check <code>disagreements.log</code> when Claude flags an issue.</strong>
+        Open <code>ai_coding/active/&lt;your task&gt;/disagreements.log</code>.
+        You will see one of these tags:
+        <ul>
+            <li><code>[TEST_CAP_REACHED]</code>: tests still failed after 3 fix attempts. No commit was made.</li>
+            <li><code>[FULL_SUITE_FAILED]</code>: something Claude did not touch is now broken. No commit was made.</li>
+            <li><code>[CAP_REACHED]</code>: the local reviewer kept finding problems over 2 attempts. Claude committed anyway and is flagging it for you.</li>
+            <li><code>[OVERRIDE]</code>: Claude disagreed with the local reviewer and proceeded. Claude committed and is flagging it for you. The merge gate will block the pull request until you clear it.</li>
+        </ul>
+        Read the log, then decide. For the two halt tags (no commit yet),
+        you can fix the problem yourself, give Claude new instructions, or
+        drop the task. For <code>[CAP_REACHED]</code> or
+        <code>[OVERRIDE]</code>, the commit already exists, so you fix
+        on top, redirect Claude, or reset the branch to undo the commit.
+    </li>
+    <li>
+        <strong>Ask Claude for a deep review. This is required.</strong>
+        In the same Claude Code chat, paste this prompt:
+        <pre>Do a deep review of the changes on this branch. Find this branch's
+task folder under ai_coding/active/ (use the AI-Task trailer on a
+recent commit on this branch), read its STATUS file and
+disagreements.log, flag any [TEST_CAP_REACHED], [FULL_SUITE_FAILED],
+[CAP_REACHED], or [OVERRIDE] tags, and tell me the next step.</pre>
+        Claude will read every change, every log file, and every affected
+        source file for this branch only. Take its findings seriously,
+        especially anything tagged <code>[CAP_REACHED]</code> or
+        <code>[OVERRIDE]</code>.
+    </li>
+    <li>
+        <strong>Move this branch's finished task folder into <code>ai_coding/archive/</code>.</strong>
+        Ask Claude to do it with this prompt:
+        <pre>If this branch's task folder under ai_coding/active/ has STATUS=PASS,
+move it into ai_coding/archive/ and commit the move with the standard
+AI tag lines used on the other commits on this branch. If the folder
+is tagged CAP_REACHED or OVERRIDE, leave it in place. Touch only this
+branch's folder, not any other task folders that happen to be in
+active/. Report what was moved.</pre>
+        Folders tagged <code>CAP_REACHED</code> or <code>OVERRIDE</code>
+        stay in <code>active/</code> on purpose. A human handles those
+        by hand. If you review one and decide to set it aside instead of
+        fixing it, move it to <code>ai_coding/quarantine/</code> rather
+        than <code>archive/</code>. Quarantine is the "looked at, not
+        resolved" pile.
+    </li>
+    <li>
+        <strong>Run <code>/clear</code> when Claude tells you to.</strong>
+        Claude will say something like <em>"deep review complete. run
+        /clear before starting the next feature."</em> Type
+        <code>/clear</code> in the Claude Code chat. That wipes its
+        memory of this work so the next task starts fresh. Do not run
+        <code>/clear</code> earlier. That would erase the context the
+        deep review needs.
+    </li>
+    <li>
+        <strong>Push the branch and open a pull request.</strong>
+        <pre>git push -u origin task/short-name
+gh pr create --base master</pre>
+        The automated checks start on their own. The merge gate looks at
+        every commit on your branch and confirms each one has valid
+        <code>AI-Verdict:</code> and <code>AI-Task:</code> lines at the
+        bottom.
+    </li>
+    <li>
+        <strong>Squash and merge when the checks pass.</strong>
+        Use the green merge button on GitHub. Delete the branch when
+        GitHub offers to.
+    </li>
+</ol>
+
+<h2>What you never have to do</h2>
+<ul>
+    <li>Create the task folder by hand. A hook stops Claude from editing source files until the folder exists, so Claude makes it.</li>
+    <li>Remember to add the AI tag lines. The local commit hook will reject the commit if they are missing.</li>
+    <li>Worry about Claude editing files before the folder exists. The same hook blocks any edit outside <code>ai_coding/active/&lt;task&gt;/</code> until a task folder is in place.</li>
+    <li>Manually copy diffs into task folders. A post-commit hook does that for you.</li>
+</ul>
+
+<h2>Common edge cases</h2>
+<details>
+    <summary>The CI merge gate failed on my pull request</summary>
+    <p>
+        Two common causes. (1) A commit on the branch is missing the AI
+        tag lines. Find the bad commit in the failed check log and either
+        rewrite it or replace it. (2) A commit has
+        <code>AI-Verdict: CAP_REACHED</code> or
+        <code>AI-Verdict: OVERRIDE</code>. The gate blocks these on
+        purpose so a human reviews them first. Decide whether the
+        flagged concern is real. If it is, redo the work so a new commit
+        genuinely earns <code>PASS</code>. If it is not, merge with an
+        admin override so the audit trail of why the original commit was
+        flagged is preserved.
+    </p>
+</details>
+<details>
+    <summary>I want to work on something small and skip the pipeline</summary>
+    <p>
+        Use a branch name that does not start with <code>feature/</code>,
+        <code>fix/</code>, or <code>task/</code>. Do not add anything
+        under <code>ai_coding/active</code>,
+        <code>ai_coding/archive</code>, or
+        <code>ai_coding/quarantine</code>. The merge gate will skip the
+        check and your pull request goes through normal review. The
+        Claude Code PreToolUse hook only blocks edits that Claude makes,
+        so a human editing files directly is unaffected. To skip the
+        local commit-msg hook's trailer check on a quick non-pipeline
+        commit, use <code>git commit --no-verify</code>.
+    </p>
+</details>
+<details>
+    <summary>Claude went off the rails and I want to start over</summary>
+    <p>
+        Delete the task folder under <code>ai_coding/active/</code>,
+        reset your branch with
+        <code>git reset --hard origin/master</code>, and begin again.
+        The pipeline does not keep any state outside that folder.
+    </p>
+</details>
+</body>
+</html>

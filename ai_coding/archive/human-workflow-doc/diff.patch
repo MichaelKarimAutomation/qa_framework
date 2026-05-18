@@ -1,0 +1,17 @@
+diff --git a/docs/ai_coding_workflow.html b/docs/ai_coding_workflow.html
+index 4cb56a7..6bcba0d 100644
+--- a/docs/ai_coding_workflow.html
++++ b/docs/ai_coding_workflow.html
+@@ -175,8 +175,10 @@ gh pr create --base master</pre>
+         <code>AI-Verdict: CAP_REACHED</code> or
+         <code>AI-Verdict: OVERRIDE</code>. The gate blocks these on
+         purpose so a human reviews them first. Decide whether the
+-        override is fine. Then either rewrite the history so the verdict
+-        is <code>PASS</code>, or merge with an admin override.
++        flagged concern is real. If it is, redo the work so a new commit
++        genuinely earns <code>PASS</code>. If it is not, merge with an
++        admin override so the audit trail of why the original commit was
++        flagged is preserved.
+     </p>
+ </details>
+ <details>
