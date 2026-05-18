@@ -12,40 +12,18 @@ Detail belongs in CLAUDE.md — this doc just gets a contributor from
 "I want to start a feature" to "it's merged" without forcing them to
 read the operating contract first.
 
-## Steps
-- [x] Create branch task/human-workflow-doc
-- [x] Create task folder per CLAUDE.md §2
-- [x] Write docs/ai_coding_workflow.html
-- [x] Add a row to GUIDE.html's Getting Started linking to it
-- [x] Run `uv run pytest` — 22/22 green
-- [x] Generate diff.patch
-- [x] Run ai_coding/reviewer.py → VERDICT: PASS
-- [x] STATUS=PASS, first commit landed (b7a347b)
-- [x] Iteration 2: revise doc per user feedback (no em-dashes, plainer language, deep review + archive folded into main steps as mandatory)
-- [x] Re-run pytest — 22/22 green
-- [x] Regenerate diff.patch for the revision
-- [x] Re-run reviewer.py — VERDICT: PASS
-- [x] Second commit with trailers (2e737a4)
-- [x] Iteration 3: add `.claude/settings.local.json` to .gitignore
-- [x] Re-run pytest — PASS (skipped per user authorization for trivial gitignore-only change)
-- [x] Re-run reviewer.py — PASS (skipped per user authorization for trivial gitignore-only change)
-- [x] Third commit with trailers (49cdee2)
-- [x] Iteration 4: combine git checkout master + git pull on one line (step 1); make step 5 + step 6 prompts copy-pastable and scoped to this branch's task folder only; move /clear before push so Claude-side steps end before git/GitHub ceremony begins. First reviewer pass on this iteration flagged two concerns that were both misreads of the diff; user authorized OVERRIDE; subsequent revision per user feedback passed cleanly on second review.
-- [x] Re-run pytest — 22/22 green
-- [x] Re-run reviewer.py — VERDICT: PASS
-- [x] Fourth commit with trailers (fbad260)
-- [x] Iteration 5: address deep-review findings. Soften step 2 hook language (Claude follows pipeline, hooks are backup). Add [OVERRIDE] to the step 4 tag list with a one-line note distinguishing it from halt tags. Add a brief quarantine mention in step 6 covering when to use it vs archive.
-- [x] Re-run pytest — 22/22 green
-- [x] Re-run reviewer.py — VERDICT: PASS
-- [x] Fifth commit with trailers (642917b)
-- [x] Iteration 6: address second deep-review findings. Rename step 4 title from "Step in if Claude stops" (only true for 2 of 4 tags) to "Check disagreements.log when Claude flags an issue." Replace closing sentence with branched guidance: halt tags get fix/redirect/drop; committed tags ([CAP_REACHED]/[OVERRIDE]) get fix-on-top/redirect/reset.
-- [x] Re-run pytest — PASS (skipped per user authorization)
-- [x] Re-run reviewer.py — PASS (skipped per user authorization)
-- [x] Sixth commit with trailers (pending)
+## Iterations
+1. Wrote docs/ai_coding_workflow.html. Added Getting Started row in GUIDE.html. pytest 22/22 green. reviewer PASS.
+2. Revised per user feedback: removed em-dashes, plainer language, deep review + archive folded into main steps as mandatory. pytest 22/22. reviewer PASS.
+3. Added `.claude/settings.local.json` to .gitignore. pytest + reviewer skipped per user authorization (trivial gitignore-only change).
+4. Step 1: combined `git checkout master` and `git pull` on one chained line. Steps 5 + 6: copy-pastable prompts scoped to this branch's task folder only. Moved /clear before push so Claude-side steps end before git/GitHub ceremony. First reviewer pass flagged two concerns that were both misreads of the diff; user authorized OVERRIDE; subsequent revision per user feedback passed cleanly. pytest 22/22. reviewer PASS.
+5. Addressed first deep-review findings: softened step 2 hook language, added [OVERRIDE] to step 4 tag list, added brief quarantine mention in step 6. pytest 22/22. reviewer PASS.
+6. Addressed second deep-review findings: renamed step 4 title to cover all four tags (not just halt ones); branched the closing options into halt vs committed tag groups. pytest + reviewer skipped per user authorization.
+7. Addressed third deep-review findings: reworded edge case 1 so "rewrite history to PASS" is no longer suggested (loses audit trail); replaced with "redo work for genuine PASS, or admin-override to preserve history." Stopped recording forward-referencing commit SHAs and "(pending)" markers in this file (they kept rotting; git log is the SHA record).
 
 ## Notes
-- §3 says implement + tests. HTML docs aren't pytest-testable; will note
-  in disagreements.log if reviewer flags this (same precedent as the
-  commit-msg-trailer-hook task).
+- §3 says implement + tests. HTML docs aren't pytest-testable; flagged in
+  earlier reviews and not contested by the local reviewer.
 - The doc lives in docs/ alongside the installation guides, parallel to
   the Sphinx output which lives at docs/_build/html/.
+- See git log for commit SHAs.

@@ -1,47 +1,17 @@
 diff --git a/docs/ai_coding_workflow.html b/docs/ai_coding_workflow.html
-index c4c7522..16db3ac 100644
+index 4cb56a7..6bcba0d 100644
 --- a/docs/ai_coding_workflow.html
 +++ b/docs/ai_coding_workflow.html
-@@ -76,11 +76,12 @@ git checkout -b task/short-name</pre>
-     </li>
-     <li>
-         <strong>Tell Claude Code what you want in plain words.</strong>
--        Just describe the change. You do not need to mention any of the
--        pipeline steps. Hooks make Claude do them automatically: it
--        creates a folder for the task, writes tests, runs them, asks the
-+        Just describe the change. Claude follows the pipeline on its own:
-+        it creates the task folder, writes tests, runs them, asks the
-         local AI reviewer to check the work, and makes a commit with the
--        special tag lines at the bottom.
-+        special tag lines at the bottom. Hooks back this up by blocking
-+        edits outside the task folder and rejecting commits missing the
-+        tag lines.
-     </li>
-     <li>
-         <strong>Watch progress in <code>ai_coding/active/&lt;your task&gt;/PROGRESS.md</code>.</strong>
-@@ -93,9 +94,10 @@ git checkout -b task/short-name</pre>
-         Open <code>ai_coding/active/&lt;your task&gt;/disagreements.log</code>.
-         You will see one of these tags:
-         <ul>
--            <li><code>[TEST_CAP_REACHED]</code>: tests still failed after 3 fix attempts.</li>
--            <li><code>[FULL_SUITE_FAILED]</code>: something Claude did not touch is now broken.</li>
--            <li><code>[CAP_REACHED]</code>: the local reviewer kept finding problems over 2 attempts.</li>
-+            <li><code>[TEST_CAP_REACHED]</code>: tests still failed after 3 fix attempts. No commit was made.</li>
-+            <li><code>[FULL_SUITE_FAILED]</code>: something Claude did not touch is now broken. No commit was made.</li>
-+            <li><code>[CAP_REACHED]</code>: the local reviewer kept finding problems over 2 attempts. Claude committed anyway and is flagging it for you.</li>
-+            <li><code>[OVERRIDE]</code>: Claude disagreed with the local reviewer and proceeded. Claude committed and is flagging it for you. The merge gate will block the pull request until you clear it.</li>
-         </ul>
-         Read the log, then decide what to do next. Options are: fix it
-         yourself, give Claude new instructions, or throw the task away.
-@@ -122,7 +124,10 @@ OVERRIDE, leave it in place. Touch only this branch's folder, not any
- other task folders that happen to be in active/. Report what was moved.</pre>
-         Folders tagged <code>CAP_REACHED</code> or <code>OVERRIDE</code>
-         stay in <code>active/</code> on purpose. A human handles those
--        by hand.
-+        by hand. If you review one and decide to set it aside instead of
-+        fixing it, move it to <code>ai_coding/quarantine/</code> rather
-+        than <code>archive/</code>. Quarantine is the "looked at, not
-+        resolved" pile.
-     </li>
-     <li>
-         <strong>Run <code>/clear</code> when Claude tells you to.</strong>
+@@ -175,8 +175,10 @@ gh pr create --base master</pre>
+         <code>AI-Verdict: CAP_REACHED</code> or
+         <code>AI-Verdict: OVERRIDE</code>. The gate blocks these on
+         purpose so a human reviews them first. Decide whether the
+-        override is fine. Then either rewrite the history so the verdict
+-        is <code>PASS</code>, or merge with an admin override.
++        flagged concern is real. If it is, redo the work so a new commit
++        genuinely earns <code>PASS</code>. If it is not, merge with an
++        admin override so the audit trail of why the original commit was
++        flagged is preserved.
+     </p>
+ </details>
+ <details>
