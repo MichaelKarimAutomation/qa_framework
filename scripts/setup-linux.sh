@@ -72,7 +72,7 @@ echo "Virtual environment created."
 # ─── Install Python Dependencies ─────────────────────────────────────────────
 echo ""
 echo "Installing Python dependencies..."
-uv add pytest pytest-xdist pytest-rerunfailures playwright pytest-playwright httpx allure-pytest faker factory-boy sqlalchemy psycopg2-binary testcontainers pytest-dotenv ruff pytest-httpserver locust jsonschema plyer sphinx sphinx-rtd-theme
+uv add pytest pytest-xdist pytest-rerunfailures playwright pytest-playwright httpx allure-pytest faker factory-boy pytest-dotenv ruff pytest-httpserver locust jsonschema plyer sphinx sphinx-rtd-theme
 echo "Python dependencies installed."
 
 # ─── Install Playwright Browsers ─────────────────────────────────────────────

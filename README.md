@@ -1,6 +1,6 @@
 # QA Automation Framework
 
-A production-quality Python-based QA automation framework built from scratch, covering UI, API, performance, and contract testing. Designed with scalability, maintainability, and CI/CD integration in mind.
+A Python-based QA automation framework built from scratch, covering UI, API, performance, and contract testing. Designed with scalability, maintainability, and CI/CD integration in mind.
 
 ---
 
@@ -9,6 +9,7 @@ A production-quality Python-based QA automation framework built from scratch, co
 - [Overview](#overview)
 - [Stack](#stack)
 - [Architecture](#architecture)
+- [Repository hooks](#repository-hooks)
 - [Installation](#installation)
 - [Running Tests](#running-tests)
 - [CI/CD](#cicd)
@@ -18,39 +19,25 @@ A production-quality Python-based QA automation framework built from scratch, co
 
 ## Overview
 
-This framework was built to demonstrate SDET-level engineering — not just writing tests, but making deliberate architectural decisions, building reusable infrastructure, and integrating the full delivery pipeline.
-
 **Test targets:**
-- **UI:** [TodoMVC](https://demo.playwright.dev/todomvc) — Playwright-driven end-to-end tests with Page Object Model
-- **API:** [JSONPlaceholder](https://jsonplaceholder.typicode.com) — REST API tests with a centralized httpx client
-- **Browser Mocking:** [Rahul Shetty's Grocery Site](https://rahulshettyacademy.com/seleniumPractise/#/) — Playwright `page.route()` interception
+- **UI smoke** ([TodoMVC](https://demo.playwright.dev/todomvc)): single add-and-verify check against the TodoMVC demo.
+- **UI end-to-end** ([Rahul Shetty practice page](https://rahulshettyacademy.com/AutomationPractice/)): full POM exercise of forms, dropdowns, alerts, windows, tabs, hover, and iframes.
+- **UI (mocked)** ([Rahul Shetty grocery site](https://rahulshettyacademy.com/seleniumPractise/#/)): Playwright `page.route()` request interception.
+- **API** ([JSONPlaceholder](https://jsonplaceholder.typicode.com)): REST API tests with a shared httpx client.
 
 **Key design decisions:**
-- Layered architecture chosen over hexagonal for faster iteration and lower onboarding cost
-- `httpx` over `requests` for async-readiness and modern API design
-- `factory_boy` integrated from the start rather than bolted on later
-- `jsonschema` over `pact-python` — eliminates native binary compilation issues while covering the core contract validation use case
-- Separate `.env` files per environment with CLI flag (`--env`) for environment switching
+- Layered architecture chosen over hexagonal for faster iteration and lower onboarding cost.
+- `httpx` instead of `requests`: supports async if we need it later, with the same synchronous API.
+- `factory_boy` + `Faker` for test data: generates realistic data on demand instead of hardcoded fixtures.
+- `jsonschema` instead of `pact-python`: easier to install (Pact needs native binaries that often fail on Windows and CI). Trade-off: `jsonschema` only checks that an API response has the right shape. It can't verify that both sides of an API stay in agreement the way Pact does.
 
 ---
 
 ## Stack
 
-| Category | Tool |
-|---|---|
-| Language & Package Management | Python 3.13, uv |
-| Test Framework | pytest, pytest-xdist, pytest-rerunfailures |
-| UI Automation | Playwright, pytest-playwright |
-| API Client | httpx |
-| Test Data | Faker, Factory Boy |
-| Mocking | pytest-httpserver, Playwright page.route() |
-| Contract Testing | jsonschema |
-| Performance | Locust |
-| Reporting | Allure |
-| Code Quality | Ruff |
-| Environment Config | pytest-dotenv |
-| Containerization | Docker |
-| CI/CD | GitHub Actions, GitLab CI |
+Python 3.13 + uv · pytest · Playwright · httpx · Locust · Allure · Ruff · GitHub Actions · Docker
+
+See [pyproject.toml](pyproject.toml) for the full dependency list.
 
 ---
 
@@ -58,45 +45,45 @@ This framework was built to demonstrate SDET-level engineering — not just writ
 
 ```
 qa_framework/
-├── pom/                    # Page Object Model — UI interaction layer
+├── pom/                    # UI interaction layer (Page Object Model)
 ├── tests/
 │   ├── ui/                 # Playwright UI tests
 │   ├── api/                # httpx API tests
-│   └── conftest.py         # Shared fixtures
+│   ├── config/             # Environment / configuration tests
+│   └── conftest.py         # Session-scoped fixtures and .env validation
 ├── utils/
-│   └── api_client.py       # Centralized API client with Allure attachments
+│   └── api_client.py       # Shared API client; attaches request/response to Allure
 ├── data/
 │   └── factories.py        # Factory Boy factories with Faker
 ├── performance/
-│   └── locustfile.py       # Locust load test definitions
-├── scripts/
-│   ├── setup-windows.ps1   # Windows setup automation
-│   ├── setup-linux.sh      # Linux/Docker setup automation
-│   └── delete_reports.py   # Cross-platform report cleanup
-├── docs/                   # Installation guides
-├── .github/workflows/      # GitHub Actions CI pipeline
-├── .gitlab-ci.yml          # GitLab CI pipeline
+│   └── *.py                # Locust load test definitions
+├── scripts/                # Setup, docs build, report cleanup, make-help helpers
+├── tools/                  # Git hook installers + versioned hooks under tools/hooks/
+├── docs/                   # Sphinx source + bundled HTML install guides
+├── .github/workflows/      # GitHub Actions CI pipelines (tests + docs deploy)
+├── ai_coding/              # CLAUDE.md task pipeline (active/, archive/, reviewer.py)
+├── .env.example            # Required env-var template; conftest validates against it
 ├── Dockerfile              # Container definition
-├── Makefile                # Developer shortcuts
+├── Makefile                # Developer shortcuts (run `make help`)
 ├── install.py              # Cross-platform setup entry point
 └── pyproject.toml          # Dependencies, markers, pytest config
 ```
 
 **Layers:**
-- **Tests** — what to verify
-- **POM** — how to interact with the UI
-- **API Client** — how to talk to APIs
-- **Factories** — how to generate test data
-- **Fixtures** — environment, setup, teardown
+- **Tests**: what to verify
+- **POM**: how to interact with the UI
+- **API Client**: how to talk to APIs
+- **Factories**: how to generate test data
+- **Fixtures**: environment, setup, teardown
 
 ---
 
 ## Repository hooks
 
-Git hooks are version-controlled under [tools/hooks/](tools/hooks/) and
-activated via `core.hooksPath`. They enforce the CLAUDE.md §2-§7 pipeline
-locally (artifact presence, STATUS validity, trailer consistency, diff
-routing). After every fresh clone, run one of:
+Git hooks live under [tools/hooks/](tools/hooks/) and are tracked in git,
+so every clone has the same versioned set. `python install.py` activates
+them automatically by setting `core.hooksPath` to `tools/hooks`. If you
+skipped install.py, you can activate them manually with:
 
 ```powershell
 # Windows (PowerShell)
@@ -108,9 +95,10 @@ routing). After every fresh clone, run one of:
 bash tools/install-hooks.sh
 ```
 
-This sets `git config core.hooksPath tools/hooks`. The hooks then fire on
-every commit in that clone, with no per-machine drift. To verify the hooks,
-run the self-test (no pytest / ollama needed):
+The hooks check the CLAUDE.md §2-§7 rules on each commit: required task
+files are present, STATUS is valid, commit trailers match the local
+review, and diffs land in the right task folder. To verify the hooks
+without running pytest or ollama, run the self-test:
 
 ```bash
 bash tools/hooks-selftest.sh
@@ -125,17 +113,19 @@ Two installation paths are available. Full step-by-step guides are in the `docs/
 
 | Guide | Description |
 |---|---|
-| `docs/install-windows.html` | Full Windows setup from scratch |
-| `docs/install-docker.html` | Docker-based setup |
+| `docs/installation_guide_windows.html` | Full Windows setup from scratch |
+| `docs/installation_guide_docker.html` | Docker-based setup |
 
-**Quick start (Windows):**
+API documentation (Sphinx-generated, deployed on every push to `master`): [michaelkarimautomation.github.io/qa_framework/reference/](https://michaelkarimautomation.github.io/qa_framework/reference/)
+
+**Quick start (host install, any OS):**
 ```bash
 python install.py
 ```
 
 **Quick start (Docker):**
 ```bash
-docker build -t qa-framework .
+make docker-build
 make docker-run
 ```
 
@@ -143,22 +133,7 @@ make docker-run
 
 ## Running Tests
 
-| Command | Description |
-|---|---|
-| `make test` | Run all tests against UAT |
-| `make smoke` | Run smoke tests only |
-| `make parallel` | Run all tests in parallel |
-| `make docker-build` | Build the Docker image |
-| `make docker-run` | Run tests in Docker |
-| `make report` | Open Allure report locally |
-| `make lint` | Run Ruff linter |
-| `make format` | Run Ruff formatter |
-
-**Environment selection:**
-```bash
-pytest tests/ --env=dev_env
-pytest tests/ --env=uat_env
-```
+A `Makefile` wraps the common workflows. Run `make help` to list every target. Most-used: `make test`, `make report`, `make smoke`, `make parallel`.
 
 **Run by marker:**
 ```bash
@@ -170,18 +145,16 @@ pytest tests/ -m "api and regression"
 
 ## CI/CD
 
-**GitHub Actions** — triggers on push and pull request to `master`. Supports manual environment selection (dev/uat) via workflow dispatch.
+**GitHub Actions** runs on every push and pull request to `master`. It can also be triggered manually from the GitHub UI.
 
-**GitLab CI** — equivalent pipeline for GitLab environments. Environment selection via CI/CD variables.
+The pipeline:
+- Installs dependencies via `uv`
+- Installs Playwright browsers with system dependencies
+- Runs the full test suite
+- Uploads Allure results as artifacts
+- Deploys the Allure report to GitHub Pages
 
-Both pipelines:
-- Install dependencies via `uv`
-- Install Playwright browsers with system dependencies
-- Run the full test suite
-- Upload Allure results as artifacts
-- Deploy the Allure report to GitHub Pages (GitHub Actions)
-
-Live report: [GitHub Pages](https://michaelkarimautomation.github.io/qa_framework/)
+Live Allure report: [michaelkarimautomation.github.io/qa_framework/allure-suite/](https://michaelkarimautomation.github.io/qa_framework/allure-suite/)
 
 ---
 
@@ -203,4 +176,5 @@ Reports include:
 - Step-by-step execution log
 - Request/response attachments for API tests
 - Screenshots on UI test failure
+- Playwright trace zip on UI failure: stored at `test-results/<test-name>/trace.zip` and also attached to the Allure report. Open at [trace.playwright.dev](https://trace.playwright.dev/) to replay every action and network call.
 - Retry history for flaky tests

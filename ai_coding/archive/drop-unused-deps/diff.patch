@@ -1,0 +1,26 @@
+diff --git a/scripts/setup-linux.sh b/scripts/setup-linux.sh
+index 652a533..4b9130f 100644
+--- a/scripts/setup-linux.sh
++++ b/scripts/setup-linux.sh
+@@ -72,7 +72,7 @@ echo "Virtual environment created."
+ # ─── Install Python Dependencies ─────────────────────────────────────────────
+ echo ""
+ echo "Installing Python dependencies..."
+-uv add pytest pytest-xdist pytest-rerunfailures playwright pytest-playwright httpx allure-pytest faker factory-boy sqlalchemy psycopg2-binary testcontainers pytest-dotenv ruff pytest-httpserver locust jsonschema plyer sphinx sphinx-rtd-theme
++uv add pytest pytest-xdist pytest-rerunfailures playwright pytest-playwright httpx allure-pytest faker factory-boy pytest-dotenv ruff pytest-httpserver locust jsonschema plyer sphinx sphinx-rtd-theme
+ echo "Python dependencies installed."
+ 
+ # ─── Install Playwright Browsers ─────────────────────────────────────────────
+diff --git a/scripts/setup-windows.ps1 b/scripts/setup-windows.ps1
+index b3a3417..111ec38 100644
+--- a/scripts/setup-windows.ps1
++++ b/scripts/setup-windows.ps1
+@@ -90,7 +90,7 @@ Write-Host "Virtual environment created." -ForegroundColor Green
+ 
+ # ─── Install Python Dependencies ─────────────────────────────────────────────
+ Write-Host "`nInstalling Python dependencies..." -ForegroundColor Yellow
+-uv add pytest pytest-xdist pytest-rerunfailures playwright pytest-playwright httpx allure-pytest faker factory-boy sqlalchemy psycopg2-binary testcontainers pytest-dotenv ruff pytest-httpserver locust jsonschema plyer sphinx sphinx-rtd-theme
++uv add pytest pytest-xdist pytest-rerunfailures playwright pytest-playwright httpx allure-pytest faker factory-boy pytest-dotenv ruff pytest-httpserver locust jsonschema plyer sphinx sphinx-rtd-theme
+ Write-Host "Python dependencies installed." -ForegroundColor Green
+ 
+ # ─── Install Playwright Browsers ─────────────────────────────────────────────
