@@ -1,0 +1,23 @@
+diff --git a/.github/workflows/tests.yml b/.github/workflows/tests.yml
+index 3292359..7a66612 100644
+--- a/.github/workflows/tests.yml
++++ b/.github/workflows/tests.yml
+@@ -143,4 +143,4 @@ jobs:
+         with:
+           github_token: ${{ secrets.GITHUB_TOKEN }}
+           publish_dir: reports/allure-report
+-          destination_dir: smoke
++          destination_dir: allure-suite
+diff --git a/README.md b/README.md
+index 3f4bd10..3c7d5b1 100644
+--- a/README.md
++++ b/README.md
+@@ -154,7 +154,7 @@ The pipeline:
+ - Uploads Allure results as artifacts
+ - Deploys the Allure report to GitHub Pages
+ 
+-Live Allure report: [michaelkarimautomation.github.io/qa_framework/smoke/](https://michaelkarimautomation.github.io/qa_framework/smoke/)
++Live Allure report: [michaelkarimautomation.github.io/qa_framework/allure-suite/](https://michaelkarimautomation.github.io/qa_framework/allure-suite/)
+ 
+ ---
+ 

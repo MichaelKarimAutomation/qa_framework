@@ -154,7 +154,7 @@ The pipeline:
 - Uploads Allure results as artifacts
 - Deploys the Allure report to GitHub Pages
 
-Live Allure report: [michaelkarimautomation.github.io/qa_framework/smoke/](https://michaelkarimautomation.github.io/qa_framework/smoke/)
+Live Allure report: [michaelkarimautomation.github.io/qa_framework/allure-suite/](https://michaelkarimautomation.github.io/qa_framework/allure-suite/)
 
 ---
 
