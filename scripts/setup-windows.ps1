@@ -90,7 +90,7 @@ Write-Host "Virtual environment created." -ForegroundColor Green
 
 # ─── Install Python Dependencies ─────────────────────────────────────────────
 Write-Host "`nInstalling Python dependencies..." -ForegroundColor Yellow
-uv add pytest pytest-xdist pytest-rerunfailures playwright pytest-playwright httpx allure-pytest faker factory-boy sqlalchemy psycopg2-binary testcontainers pytest-dotenv ruff pytest-httpserver locust jsonschema plyer sphinx sphinx-rtd-theme
+uv add pytest pytest-xdist pytest-rerunfailures playwright pytest-playwright httpx allure-pytest faker factory-boy pytest-dotenv ruff pytest-httpserver locust jsonschema plyer sphinx sphinx-rtd-theme
 Write-Host "Python dependencies installed." -ForegroundColor Green
 
 # ─── Install Playwright Browsers ─────────────────────────────────────────────

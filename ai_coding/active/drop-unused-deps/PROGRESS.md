@@ -9,9 +9,10 @@
 - Confirmed still used (kept):
   - `plyer` — used by `ai_coding/reviewer.py` and `ai_coding/notify.py` (CLAUDE.md §10 notifications)
   - `sphinx`, `sphinx-rtd-theme` — used by `scripts/generate_docs.py` and `docs/conf.py`
-- Steps completed: investigation
-- Steps remaining:
-  - Remove the three unused entries from `pyproject.toml`
-  - Refresh `uv.lock` via `uv sync` (or `uv lock`)
+- Steps completed:
+  - Removed psycopg2-binary, sqlalchemy, testcontainers from `pyproject.toml` and refreshed `uv.lock`.
+  - Committed (AI-Verdict: OVERRIDE).
+- Follow-up landing in a second commit on this task:
+  - `scripts/setup-windows.ps1` and `scripts/setup-linux.sh` both hardcoded `uv add ... psycopg2-binary sqlalchemy testcontainers ...`. Running `install.py` fresh would have re-added the dropped deps to pyproject. Now removed.
 - Pending decisions: none
-- Test impact: none expected — these deps had no callers. Full-suite run will confirm.
+- Test impact: still none. Setup scripts only run at install time; full pytest already passed against the new deps list.
