@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).parent / 'scripts'
+TOOLS_DIR = Path(__file__).parent / 'tools'
 
 
 def get_base_python_executable() -> Path | None:
@@ -63,6 +64,22 @@ def main():
     if result.returncode != 0:
         print('Setup failed. Check the output above for errors.')
         sys.exit(result.returncode)
+
+    print('\nActivating git hooks...')
+    if os_name == 'Windows':
+        hook_script = TOOLS_DIR / 'install-hooks.ps1'
+        hook_result = subprocess.run(
+            ['powershell', '-ExecutionPolicy', 'ByPass', '-File', str(hook_script)],
+            check=False,
+        )
+    else:
+        hook_script = TOOLS_DIR / 'install-hooks.sh'
+        hook_script.chmod(0o755)
+        hook_result = subprocess.run(['bash', str(hook_script)], check=False)
+
+    if hook_result.returncode != 0:
+        print('Git hook activation failed. Check the output above for errors.')
+        sys.exit(hook_result.returncode)
 
     print('\nSetup complete.')
 

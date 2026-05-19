@@ -1,0 +1,25 @@
+[2026-05-19 01:32] [OVERRIDE]
+  Local model flagged: "PowerShell ExecutionPolicy ByPass without validation of
+    the script's authenticity or source could allow arbitrary code execution
+    if the script is compromised."
+  Claude Code reasoning: Not applicable. The hook installer script
+    (tools/install-hooks.ps1) is repo-tracked and version-controlled. If the
+    repo is compromised, every commit, test, and CI run is compromised — the
+    PowerShell policy bit changes nothing. Furthermore, the existing setup
+    dispatch at install.py:52 already uses ExecutionPolicy ByPass for the
+    same reason (run a repo-local script). My change matches the established
+    pattern. Diverging here would be inconsistency, not security.
+
+[2026-05-19 01:32] [OVERRIDE]
+  Local model flagged: "Script assumes install-hooks.sh exists and is
+    executable, but doesn't verify this before attempting to run it."
+  Claude Code reasoning: Not applicable. The existing setup-script dispatch
+    at install.py:55-59 also doesn't pre-validate setup-linux.sh's existence;
+    it relies on subprocess.run surfacing the error and the non-zero exit
+    code propagating through `if result.returncode != 0`. My new hook-install
+    block uses the exact same fallback (hook_result.returncode != 0 -> exit).
+    Adding a Path.exists() check would create a divergent pattern within the
+    same function. The install-hooks.sh/.ps1 scripts also self-validate their
+    own preconditions (git version, hooks dir existence), so a missing
+    dependency would yield a clear error from bash/powershell, not a silent
+    skip.
