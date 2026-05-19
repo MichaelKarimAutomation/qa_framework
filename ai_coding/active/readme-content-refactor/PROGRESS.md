@@ -1,0 +1,21 @@
+# PROGRESS — readme-content-refactor
+
+- Branch: task/readme-refactor (shared with [ci-allure-path-rename] and [drop-unused-deps])
+- Scope: Bring README.md in line with current code state and condense filler sections.
+- Steps completed:
+  - GitLab references removed (Stack table, architecture tree, CI/CD section)
+  - `--env` references removed (design decisions bullet, "Environment selection" block, workflow_dispatch parenthetical softened)
+  - `performance/locustfile.py` → `performance/*.py` in architecture tree
+  - Install table filenames corrected to `installation_guide_*.html`
+  - Live Allure link removed, then re-added with Sphinx API docs link added under Installation
+- Steps remaining:
+  - None (content work complete).
+- Additional round completed (Severity 5 polish):
+  - TOC adds `Repository hooks`
+  - Overview lead-in rewritten to neutral framing (dropped "SDET-level engineering")
+  - "Browser Mocking" relabeled to "UI (mocked)" for category parallelism
+  - jsonschema bullet rewritten to acknowledge Pact's consumer-driven / provider-state contract strength as the trade-off
+  - "Quick start (Windows)" → "Quick start (host install, any OS)" — install.py is cross-platform
+  - Docker quick start now uses `make docker-build && make docker-run` (was mixed raw docker + make)
+- Pending decisions: none
+- Test impact: none (README-only changes, no code touched)
