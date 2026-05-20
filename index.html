@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>qa_framework</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f6f8fa;
+  color: #1f2328;
+  line-height: 1.5;
+}
+header {
+  background: #24292f;
+  color: #fff;
+  padding: 2rem 1.5rem;
+}
+header h1 { margin: 0 0 0.25rem; font-size: 1.75rem; }
+header p { margin: 0; opacity: 0.85; }
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+.card {
+  background: #fff;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  padding: 1.25rem;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, transform 0.15s;
+  display: block;
+}
+.card:hover {
+  border-color: #0969da;
+  transform: translateY(-2px);
+}
+.card h2 { margin: 0 0 0.5rem; font-size: 1.15rem; color: #0969da; }
+.card .path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  color: #57606a;
+}
+.tag {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  background: #fff8c5;
+  border: 1px solid #d4a72c;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  color: #57606a;
+  vertical-align: middle;
+  font-weight: normal;
+}
+.empty {
+  padding: 1.5rem;
+  border: 1px dashed #d0d7de;
+  border-radius: 6px;
+  color: #57606a;
+  text-align: center;
+}
+footer {
+  text-align: center;
+  padding: 1.5rem;
+  color: #57606a;
+  font-size: 0.85rem;
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>qa_framework</h1>
+  <p>Published reports and reference documentation for the qa_framework test automation project.</p>
+</header>
+<main>
+    <section class="grid">
+      <a class="card" href="allure-suite/"><h2>Test Results</h2><div class="path">allure-suite/</div></a>
+      <a class="card" href="reference/"><h2>API Reference</h2><div class="path">reference/</div></a>
+    </section>
+</main>
+<footer>Last deployed: 2026-05-20 06:14 UTC</footer>
+</body>
+</html>
