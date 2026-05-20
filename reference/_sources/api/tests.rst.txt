@@ -11,6 +11,7 @@ Subpackages
 
    tests.api
    tests.config
+   tests.scripts
    tests.ui
 
 Submodules

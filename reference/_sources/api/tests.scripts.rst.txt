@@ -1,0 +1,12 @@
+tests.scripts namespace
+=======================
+
+.. py:module:: tests.scripts
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   tests.scripts.test_generate_gh_pages_index

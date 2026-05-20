@@ -1,0 +1,7 @@
+tests.scripts.test\_generate\_gh\_pages\_index module
+=====================================================
+
+.. automodule:: tests.scripts.test_generate_gh_pages_index
+   :members:
+   :show-inheritance:
+   :undoc-members:
