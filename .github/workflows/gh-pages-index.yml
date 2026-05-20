@@ -6,14 +6,22 @@ name: Build gh-pages root index
 # alongside the rest of the codebase.
 #
 # Triggers:
-#   - push to gh-pages, excluding index.html itself (breaks the self-trigger loop)
-#   - workflow_dispatch for manual reruns
+#   - workflow_run after either upstream deploy workflow completes on master.
+#     A direct `push: branches: [gh-pages]` trigger does not work here:
+#     GitHub Actions evaluates `push` triggers against workflow files that
+#     exist on the branch receiving the push, and peaceiris/actions-gh-pages
+#     only publishes `reference/` and `allure-suite/` — it never copies
+#     `.github/workflows/` to gh-pages. `workflow_run` reads the workflow
+#     file from the default branch, which is where this file lives.
+#   - workflow_dispatch for manual reruns.
 
 on:
-  push:
-    branches: [gh-pages]
-    paths-ignore:
-      - 'index.html'
+  workflow_run:
+    workflows:
+      - 'Build and Deploy Docs'
+      - 'QA Framework Tests'
+    types: [completed]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
