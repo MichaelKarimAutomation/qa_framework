@@ -1,0 +1,70 @@
+diff --git a/.github/workflows/gh-pages-index.yml b/.github/workflows/gh-pages-index.yml
+index 37791bd..f7b73a7 100644
+--- a/.github/workflows/gh-pages-index.yml
++++ b/.github/workflows/gh-pages-index.yml
+@@ -6,14 +6,22 @@ name: Build gh-pages root index
+ # alongside the rest of the codebase.
+ #
+ # Triggers:
+-#   - push to gh-pages, excluding index.html itself (breaks the self-trigger loop)
+-#   - workflow_dispatch for manual reruns
++#   - workflow_run after either upstream deploy workflow completes on master.
++#     A direct `push: branches: [gh-pages]` trigger does not work here:
++#     GitHub Actions evaluates `push` triggers against workflow files that
++#     exist on the branch receiving the push, and peaceiris/actions-gh-pages
++#     only publishes `reference/` and `allure-suite/` — it never copies
++#     `.github/workflows/` to gh-pages. `workflow_run` reads the workflow
++#     file from the default branch, which is where this file lives.
++#   - workflow_dispatch for manual reruns.
+ 
+ on:
+-  push:
+-    branches: [gh-pages]
+-    paths-ignore:
+-      - 'index.html'
++  workflow_run:
++    workflows:
++      - 'Build and Deploy Docs'
++      - 'QA Framework Tests'
++    types: [completed]
++    branches: [master]
+   workflow_dispatch:
+ 
+ permissions:
+diff --git a/ai_coding/active/gh-pages-index-trigger-fix/PROGRESS.md b/ai_coding/active/gh-pages-index-trigger-fix/PROGRESS.md
+new file mode 100644
+index 0000000..e5d89c8
+--- /dev/null
++++ b/ai_coding/active/gh-pages-index-trigger-fix/PROGRESS.md
+@@ -0,0 +1,31 @@
++# gh-pages-index-trigger-fix
++
++- Task: Fix the `push: branches: [gh-pages]` trigger on
++  `.github/workflows/gh-pages-index.yml`. Confirmed inert after the
++  PR #12 merge: docs.yml and tests.yml deployed to gh-pages, but the
++  index workflow never appeared in the Actions feed because GitHub
++  Actions evaluates `push` triggers against workflow files that exist
++  on the branch receiving the push, and the file lives on master only
++  (peaceiris/actions-gh-pages never copies `.github/workflows/` to
++  gh-pages).
++- Branch: `feature/gh-pages-root-index` (reused; remote-deleted after
++  PR #12 merged, reset locally to origin/master).
++
++## Approach
++- Replace `push: branches: [gh-pages]` with `workflow_run` listening
++  to "Build and Deploy Docs" and "QA Framework Tests" completing on
++  master. `workflow_run` reads the workflow file from the default
++  branch, where ours lives.
++- Remove the now-dead `paths-ignore: ['index.html']` self-trigger
++  guard (no workflow watches pushes to gh-pages anymore, so the loop
++  it was breaking cannot form).
++- Keep `workflow_dispatch` for manual reruns.
++
++## Steps remaining
++- Edit gh-pages-index.yml.
++- Full pytest suite (§5).
++- diff.patch + reviewer.py (§6).
++- Commit + push + PR.
++
++## Pending decisions / open items
++- None.
