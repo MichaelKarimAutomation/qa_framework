@@ -1,0 +1,546 @@
+diff --git a/.github/workflows/gh-pages-index.yml b/.github/workflows/gh-pages-index.yml
+new file mode 100644
+index 0000000..37791bd
+--- /dev/null
++++ b/.github/workflows/gh-pages-index.yml
+@@ -0,0 +1,81 @@
++name: Build gh-pages root index
++
++# Regenerates the landing-page index.html at the root of the gh-pages branch
++# whenever a deploy lands. The companion script lives on master at
++# scripts/generate_gh_pages_index.py so the rendering logic can be unit tested
++# alongside the rest of the codebase.
++#
++# Triggers:
++#   - push to gh-pages, excluding index.html itself (breaks the self-trigger loop)
++#   - workflow_dispatch for manual reruns
++
++on:
++  push:
++    branches: [gh-pages]
++    paths-ignore:
++      - 'index.html'
++  workflow_dispatch:
++
++permissions:
++  contents: write
++
++# Serialize runs against gh-pages so two near-simultaneous deploys cannot race
++# the push step. cancel-in-progress is false because we want each deploy to
++# produce a corresponding index regeneration, not skip queued ones.
++concurrency:
++  group: gh-pages-index
++  cancel-in-progress: false
++
++jobs:
++  build_index:
++    runs-on: ubuntu-latest
++    steps:
++      - name: Checkout gh-pages
++        uses: actions/checkout@v4
++        with:
++          ref: gh-pages
++          fetch-depth: 1
++
++      - name: Checkout master into .ci-tools (script source)
++        uses: actions/checkout@v4
++        with:
++          ref: master
++          path: .ci-tools
++          fetch-depth: 1
++
++      - name: Capture gh-pages HEAD commit timestamp
++        id: ts
++        shell: bash
++        run: |
++          set -euo pipefail
++          ts="$(git log -1 --format=%cd --date=format-local:'%Y-%m-%d %H:%M UTC' HEAD)"
++          echo "value=$ts" >> "$GITHUB_OUTPUT"
++        env:
++          TZ: UTC
++
++      - name: Generate index.html
++        shell: bash
++        run: |
++          set -euo pipefail
++          python3 .ci-tools/scripts/generate_gh_pages_index.py \
++            --root . \
++            --output index.html \
++            --timestamp "${{ steps.ts.outputs.value }}"
++
++      - name: Remove .ci-tools checkout
++        shell: bash
++        run: rm -rf .ci-tools
++
++      - name: Commit and push if changed
++        shell: bash
++        run: |
++          set -euo pipefail
++          git config user.name "github-actions[bot]"
++          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
++          if [ -n "$(git status --porcelain -- index.html)" ]; then
++            git add index.html
++            git commit -m "ci: regenerate gh-pages root index"
++            git push origin gh-pages
++          else
++            echo "index.html unchanged - skipping commit."
++          fi
+diff --git a/ai_coding/active/gh-pages-root-index/PROGRESS.md b/ai_coding/active/gh-pages-root-index/PROGRESS.md
+new file mode 100644
+index 0000000..a5ab8e8
+--- /dev/null
++++ b/ai_coding/active/gh-pages-root-index/PROGRESS.md
+@@ -0,0 +1,27 @@
++# gh-pages-root-index
++
++- Task: Add a CI workflow that regenerates a root index.html on the gh-pages
++  branch, listing the existing subsite directories (`allure-suite`,
++  `reference`) and any future top-level directories.
++- Branch: `feature/gh-pages-root-index`
++
++## Steps completed
++- Generator script `scripts/generate_gh_pages_index.py` written.
++- Workflow `.github/workflows/gh-pages-index.yml` written
++  (push gh-pages with `paths-ignore: ['index.html']`, plus workflow_dispatch).
++- Unit tests added: `tests/scripts/test_generate_gh_pages_index.py`,
++  15/15 green.
++- Full pytest suite: 37/37 green in 26.37s.
++- Reviewer.py: model emitted no `VERDICT:` line; both substantive comments
++  (defensive empty-timestamp guard, recursive `tmp_path` fixture
++  redefinition) were not actionable. User reclassified to PASS pending a
++  permanent fix to the local-reviewer reliability problem.
++
++## Steps remaining
++- Commit landed with `AI-Verdict: PASS` and `AI-Task: gh-pages-root-index`
++  trailers; post-commit hook routes the diff.
++- Manual workflow_dispatch run on gh-pages after merge to validate the
++  rendered landing page.
++
++## Pending decisions / open items
++- None.
+diff --git a/ai_coding/active/gh-pages-root-index/STATUS b/ai_coding/active/gh-pages-root-index/STATUS
+new file mode 100644
+index 0000000..7ef22e9
+--- /dev/null
++++ b/ai_coding/active/gh-pages-root-index/STATUS
+@@ -0,0 +1 @@
++PASS
+diff --git a/ai_coding/active/gh-pages-root-index/disagreements.log b/ai_coding/active/gh-pages-root-index/disagreements.log
+new file mode 100644
+index 0000000..e69de29
+diff --git a/ai_coding/active/gh-pages-root-index/review_local.md b/ai_coding/active/gh-pages-root-index/review_local.md
+new file mode 100644
+index 0000000..fb54bfb
+--- /dev/null
++++ b/ai_coding/active/gh-pages-root-index/review_local.md
+@@ -0,0 +1,84 @@
++# Local AI review — 2026-05-20T05:54:32.781445+00:00
++
++> PARSING NOTE: No VERDICT line found in model output. Treating as FAIL (fail-safe).
++
++## Summary of Changes
++
++This pull request introduces a new script, `generate_gh_pages_index.py`, designed to automatically generate an index HTML file for a GitHub Pages site. This index file lists all published subsites (directories) within the site's root, providing links to each. It includes features for mapping known subsite names to friendly titles, auto-discovering unknown subsites, and ensuring the generated HTML is safe and deterministic. A corresponding unit test suite is also included to validate the script's functionality.
++
++### Highlights
++
++* **New Script**: Introduces `scripts/generate_gh_pages_index.py` to automatically generate an index HTML file for GitHub Pages.
++* **Subsite Discovery**: The script discovers and lists all directories (excluding hidden ones) in the specified root path.
++* **Friendly Titles**: Known subsite names (e.g., 'allure-suite') are mapped to user-friendly titles (e.g., 'Test Results').
++* **Auto-Discovery**: Unknown subsite names are automatically title-cased and marked as 'auto-discovered'.
++* **Security**: The script ensures all user-provided content (section names, timestamps) is properly escaped to prevent XSS vulnerabilities.
++* **Deterministic Output**: The generated HTML is deterministic, ensuring consistent output for the same input.
++* **Unit Tests**: Adds `tests/scripts/test_generate_gh_pages_index.py` to thoroughly test the script's functionality, including edge cases and security measures.
++
++### Changelog
++
++* **scripts/generate_gh_pages_index.py**
++  * New script to generate an index HTML file for GitHub Pages.
++  * Discovers directories in the specified root path, excluding hidden ones.
++  * Maps known subsite names to friendly titles.
++  * Automatically title-cases unknown subsite names.
++  * Escapes all user-provided content to prevent XSS.
++  * Includes a timestamp in the footer.
++  * Outputs a self-contained HTML file with embedded CSS.
++* **tests/scripts/test_generate_gh_pages_index.py**
++  * Added unit tests for the `generate_gh_pages_index.py` script.
++  * Tests include discovery of sections, rendering of cards, and handling of empty states.
++  * Tests cover escaping of user-provided content and deterministic output.
++  * Tests verify the correct mapping of known subsite names.
++
++## Code Review
++
++This pull request introduces a script to generate an index HTML file for a GitHub Pages site, listing all published subsites. It includes functionality for mapping known subsite names to friendly titles, auto-discovering unknown subsites, and ensuring the generated HTML is safe and deterministic. The changes also include unit tests for the new script.
++
++[Comment on scripts/generate_gh_pages_index.py]:
++
++
++Consider adding a check to ensure the `timestamp` argument is a valid date string. This can prevent unexpected errors if an invalid timestamp is provided.
++
++```suggestion
++    if not timestamp:
++        raise ValueError("Timestamp cannot be empty")
++```
++
++[Comment on tests/scripts/test_generate_gh_pages_index.py]:
++
++
++Consider using `pytest` fixtures to avoid repeating the `tmp_path` setup in multiple tests. This can improve readability and maintainability.
++
++```suggestion
++import pytest
++
++@pytest.fixture
++def tmp_path():
++    return tmp_path
++
++def test_discover_sections_excludes_hidden(tmp_path):
++    (tmp_path / '.git').mkdir()
++    (tmp_path / '.nojekyll').touch()
++    (tmp_path / 'allure-suite').mkdir()
++    (tmp_path / 'reference').mkdir()
++    assert discover_sections(tmp_path) == ['allure-suite', 'reference']
++```
++
++---
++
++# Human reviewer override — 2026-05-20 06:15 UTC
++
++User reclassified the local-reviewer outcome on this task from OVERRIDE to
++PASS. The model emitted no `VERDICT:` line and produced no actionable
++findings (the empty-timestamp guard is defensive against an impossible
++input the workflow always supplies; the `tmp_path` fixture suggestion above
++would recursively shadow pytest's built-in fixture and break every test).
++After an audit of the prior 12 task reviews — none of which produced a
++real finding either — the user is evaluating whether to remove the local
++LLM step entirely. Pending that decision, this task's verdict is recorded
++as PASS.
++
++VERDICT: PASS
++
+diff --git a/scripts/generate_gh_pages_index.py b/scripts/generate_gh_pages_index.py
+new file mode 100644
+index 0000000..8d10568
+--- /dev/null
++++ b/scripts/generate_gh_pages_index.py
+@@ -0,0 +1,183 @@
++#!/usr/bin/env python3
++"""Generate a root index.html landing page for the gh-pages branch.
++
++Discovers top-level directories on the gh-pages working tree and renders a
++self-contained HTML card grid linking to each one. Hidden entries (names
++starting with '.') and regular files are skipped. Known directory names are
++given friendly labels via DISPLAY_NAME_MAP; unknown directories are rendered
++title-cased with an 'auto-discovered' tag so the mapping gap is visible.
++
++The workflow at .github/workflows/gh-pages-index.yml is the only intended
++caller; the script is kept importable so the rendering logic can be unit
++tested without touching the filesystem of an actual gh-pages checkout.
++"""
++from __future__ import annotations
++
++import argparse
++from html import escape
++from pathlib import Path
++
++DISPLAY_NAME_MAP: dict[str, str] = {
++    'allure-suite': 'Test Results',
++    'reference': 'API Reference',
++}
++
++PROJECT_NAME = 'qa_framework'
++PROJECT_DESCRIPTION = (
++    'Published reports and reference documentation for the qa_framework '
++    'test automation project.'
++)
++
++CSS = """\
++* { box-sizing: border-box; }
++body {
++  margin: 0;
++  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
++  background: #f6f8fa;
++  color: #1f2328;
++  line-height: 1.5;
++}
++header {
++  background: #24292f;
++  color: #fff;
++  padding: 2rem 1.5rem;
++}
++header h1 { margin: 0 0 0.25rem; font-size: 1.75rem; }
++header p { margin: 0; opacity: 0.85; }
++main {
++  max-width: 960px;
++  margin: 0 auto;
++  padding: 2rem 1.5rem;
++}
++.grid {
++  display: grid;
++  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
++  gap: 1rem;
++}
++.card {
++  background: #fff;
++  border: 1px solid #d0d7de;
++  border-radius: 6px;
++  padding: 1.25rem;
++  text-decoration: none;
++  color: inherit;
++  transition: border-color 0.15s, transform 0.15s;
++  display: block;
++}
++.card:hover {
++  border-color: #0969da;
++  transform: translateY(-2px);
++}
++.card h2 { margin: 0 0 0.5rem; font-size: 1.15rem; color: #0969da; }
++.card .path {
++  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
++  font-size: 0.85rem;
++  color: #57606a;
++}
++.tag {
++  display: inline-block;
++  margin-left: 0.5rem;
++  padding: 0.1rem 0.4rem;
++  background: #fff8c5;
++  border: 1px solid #d4a72c;
++  border-radius: 3px;
++  font-size: 0.7rem;
++  color: #57606a;
++  vertical-align: middle;
++  font-weight: normal;
++}
++.empty {
++  padding: 1.5rem;
++  border: 1px dashed #d0d7de;
++  border-radius: 6px;
++  color: #57606a;
++  text-align: center;
++}
++footer {
++  text-align: center;
++  padding: 1.5rem;
++  color: #57606a;
++  font-size: 0.85rem;
++}
++"""
++
++
++def discover_sections(root: Path) -> list[str]:
++    """Return sorted top-level directory names under *root*, excluding hidden ones."""
++    return sorted(
++        entry.name
++        for entry in root.iterdir()
++        if entry.is_dir() and not entry.name.startswith('.')
++    )
++
++
++def _friendly_title(name: str) -> tuple[str, bool]:
++    """Return (title, is_known) for a directory name."""
++    if name in DISPLAY_NAME_MAP:
++        return DISPLAY_NAME_MAP[name], True
++    return name.replace('-', ' ').replace('_', ' ').title(), False
++
++
++def render_card(name: str) -> str:
++    title, known = _friendly_title(name)
++    tag = '' if known else ' <span class="tag">auto-discovered</span>'
++    return (
++        f'<a class="card" href="{escape(name)}/">'
++        f'<h2>{escape(title)}{tag}</h2>'
++        f'<div class="path">{escape(name)}/</div>'
++        f'</a>'
++    )
++
++
++def render_index_html(sections: list[str], timestamp: str) -> str:
++    if sections:
++        body = '<section class="grid">\n      ' + '\n      '.join(
++            render_card(name) for name in sections
++        ) + '\n    </section>'
++    else:
++        body = '<div class="empty">No published subsites found yet.</div>'
++
++    return (
++        '<!DOCTYPE html>\n'
++        '<html lang="en">\n'
++        '<head>\n'
++        '<meta charset="utf-8">\n'
++        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
++        f'<title>{escape(PROJECT_NAME)}</title>\n'
++        '<style>\n'
++        f'{CSS}'
++        '</style>\n'
++        '</head>\n'
++        '<body>\n'
++        '<header>\n'
++        f'  <h1>{escape(PROJECT_NAME)}</h1>\n'
++        f'  <p>{escape(PROJECT_DESCRIPTION)}</p>\n'
++        '</header>\n'
++        '<main>\n'
++        f'    {body}\n'
++        '</main>\n'
++        f'<footer>Last deployed: {escape(timestamp)}</footer>\n'
++        '</body>\n'
++        '</html>\n'
++    )
++
++
++def main() -> int:
++    ap = argparse.ArgumentParser(description=__doc__)
++    ap.add_argument('--root', required=True, type=Path,
++                    help='Path to the gh-pages working tree root.')
++    ap.add_argument('--output', required=True, type=Path,
++                    help='Path where index.html should be written.')
++    ap.add_argument('--timestamp', required=True,
++                    help='Human-readable UTC timestamp for the footer.')
++    args = ap.parse_args()
++
++    sections = discover_sections(args.root)
++    html = render_index_html(sections, args.timestamp)
++    args.output.write_text(html, encoding='utf-8')
++    print(f'wrote {args.output} ({len(sections)} section(s))')
++    return 0
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
+diff --git a/tests/scripts/test_generate_gh_pages_index.py b/tests/scripts/test_generate_gh_pages_index.py
+new file mode 100644
+index 0000000..e3ab2c3
+--- /dev/null
++++ b/tests/scripts/test_generate_gh_pages_index.py
+@@ -0,0 +1,131 @@
++"""Unit tests for scripts/generate_gh_pages_index.py."""
++from __future__ import annotations
++
++from scripts.generate_gh_pages_index import (
++    DISPLAY_NAME_MAP,
++    discover_sections,
++    render_card,
++    render_index_html,
++)
++
++
++def test_discover_sections_excludes_hidden(tmp_path):
++    (tmp_path / '.git').mkdir()
++    (tmp_path / '.nojekyll').touch()
++    (tmp_path / 'allure-suite').mkdir()
++    (tmp_path / 'reference').mkdir()
++    assert discover_sections(tmp_path) == ['allure-suite', 'reference']
++
++
++def test_discover_sections_excludes_files(tmp_path):
++    (tmp_path / 'allure-suite').mkdir()
++    (tmp_path / 'index.html').write_text('x')
++    (tmp_path / 'README.md').write_text('x')
++    assert discover_sections(tmp_path) == ['allure-suite']
++
++
++def test_discover_sections_sorted(tmp_path):
++    for name in ['zeta', 'alpha', 'mu']:
++        (tmp_path / name).mkdir()
++    assert discover_sections(tmp_path) == ['alpha', 'mu', 'zeta']
++
++
++def test_discover_sections_empty(tmp_path):
++    assert discover_sections(tmp_path) == []
++
++
++def test_render_card_uses_friendly_name():
++    out = render_card('allure-suite')
++    assert 'Test Results' in out
++    assert 'href="allure-suite/"' in out
++    assert 'auto-discovered' not in out
++
++
++def test_render_card_marks_unknown_auto_discovered():
++    out = render_card('coverage')
++    assert 'Coverage' in out
++    assert 'auto-discovered' in out
++    assert 'href="coverage/"' in out
++
++
++def test_render_card_title_cases_compound_unknown():
++    out = render_card('new-thing_v2')
++    assert 'New Thing V2' in out
++    assert 'auto-discovered' in out
++
++
++def test_render_index_html_includes_all_sections():
++    html = render_index_html(['allure-suite', 'reference'], '2026-05-19 12:34 UTC')
++    assert 'Test Results' in html
++    assert 'API Reference' in html
++    assert 'href="allure-suite/"' in html
++    assert 'href="reference/"' in html
++    assert 'Last deployed: 2026-05-19 12:34 UTC' in html
++
++
++def test_render_index_html_deterministic():
++    a = render_index_html(['allure-suite', 'reference'], '2026-05-19 12:34 UTC')
++    b = render_index_html(['allure-suite', 'reference'], '2026-05-19 12:34 UTC')
++    assert a == b
++
++
++def test_render_index_html_empty_state():
++    html = render_index_html([], '2026-05-19 12:34 UTC')
++    assert 'No published subsites' in html
++    assert 'Last deployed: 2026-05-19 12:34 UTC' in html
++
++
++def test_render_index_html_escapes_timestamp():
++    html = render_index_html([], '<bad>')
++    assert '<bad>' not in html
++    assert '&lt;bad&gt;' in html
++
++
++def test_render_index_html_escapes_section_names():
++    # A folder name with HTML-meaningful chars should not break the document.
++    html = render_index_html(['weird&name'], '2026-05-19 12:34 UTC')
++    assert 'weird&name' not in html  # raw form must be escaped
++    assert 'weird&amp;name' in html
++
++
++def test_render_index_html_is_selfcontained():
++    html = render_index_html(['allure-suite'], '2026-05-19 12:34 UTC')
++    assert '<script' not in html.lower()
++    assert 'http://' not in html
++    assert 'https://' not in html
++    assert '<link' not in html.lower()
++
++
++def test_known_mapping_has_expected_entries():
++    assert DISPLAY_NAME_MAP['allure-suite'] == 'Test Results'
++    assert DISPLAY_NAME_MAP['reference'] == 'API Reference'
++
++
++def test_main_writes_file(tmp_path, capsys):
++    from scripts.generate_gh_pages_index import main
++    import sys
++
++    root = tmp_path / 'root'
++    root.mkdir()
++    (root / 'allure-suite').mkdir()
++    (root / 'reference').mkdir()
++    out = tmp_path / 'index.html'
++
++    saved_argv = sys.argv
++    try:
++        sys.argv = [
++            'generate_gh_pages_index.py',
++            '--root', str(root),
++            '--output', str(out),
++            '--timestamp', '2026-05-19 12:34 UTC',
++        ]
++        rc = main()
++    finally:
++        sys.argv = saved_argv
++
++    assert rc == 0
++    assert out.is_file()
++    content = out.read_text(encoding='utf-8')
++    assert 'Test Results' in content
++    assert 'API Reference' in content
++    assert 'Last deployed: 2026-05-19 12:34 UTC' in content

@@ -1,0 +1,81 @@
+name: Build gh-pages root index
+
+# Regenerates the landing-page index.html at the root of the gh-pages branch
+# whenever a deploy lands. The companion script lives on master at
+# scripts/generate_gh_pages_index.py so the rendering logic can be unit tested
+# alongside the rest of the codebase.
+#
+# Triggers:
+#   - push to gh-pages, excluding index.html itself (breaks the self-trigger loop)
+#   - workflow_dispatch for manual reruns
+
+on:
+  push:
+    branches: [gh-pages]
+    paths-ignore:
+      - 'index.html'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Serialize runs against gh-pages so two near-simultaneous deploys cannot race
+# the push step. cancel-in-progress is false because we want each deploy to
+# produce a corresponding index regeneration, not skip queued ones.
+concurrency:
+  group: gh-pages-index
+  cancel-in-progress: false
+
+jobs:
+  build_index:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 1
+
+      - name: Checkout master into .ci-tools (script source)
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          path: .ci-tools
+          fetch-depth: 1
+
+      - name: Capture gh-pages HEAD commit timestamp
+        id: ts
+        shell: bash
+        run: |
+          set -euo pipefail
+          ts="$(git log -1 --format=%cd --date=format-local:'%Y-%m-%d %H:%M UTC' HEAD)"
+          echo "value=$ts" >> "$GITHUB_OUTPUT"
+        env:
+          TZ: UTC
+
+      - name: Generate index.html
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .ci-tools/scripts/generate_gh_pages_index.py \
+            --root . \
+            --output index.html \
+            --timestamp "${{ steps.ts.outputs.value }}"
+
+      - name: Remove .ci-tools checkout
+        shell: bash
+        run: rm -rf .ci-tools
+
+      - name: Commit and push if changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain -- index.html)" ]; then
+            git add index.html
+            git commit -m "ci: regenerate gh-pages root index"
+            git push origin gh-pages
+          else
+            echo "index.html unchanged - skipping commit."
+          fi
