@@ -33,7 +33,13 @@ jobs:
         with:
           ref: master
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # AUTO_ARCHIVE_TOKEN is a classic PAT with repo scope owned by
+          # a user holding Repository-admin role. The default GITHUB_TOKEN
+          # authenticates as github-actions[bot], which is not addressable
+          # in the master ruleset bypass list. Using the PAT carries the
+          # admin identity through to git push, which the ruleset's
+          # Repository-admin bypass entry allows.
+          token: ${{ secrets.AUTO_ARCHIVE_TOKEN }}
 
       - name: Sweep active/ for PASS / OVERRIDE folders
         id: sweep
