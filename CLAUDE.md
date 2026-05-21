@@ -166,3 +166,39 @@ implementation history without bloating the running tree.
 
 `archived/` is for source files. `ai_coding/archive/` is for completed
 task-pipeline folders. Do not confuse the two.
+
+## 14. Forbidden Literals in Commit Messages and PR Bodies
+Claude must NOT include any of the literals listed below in a commit
+message, PR title, or PR body it authors in this repo. The list is
+expected to grow over time; new entries follow the same shape (the
+literal, its variants, why it's forbidden).
+
+**Permission carve-out** (applies to every entry below): if Claude
+believes a specific commit or PR genuinely needs to include a
+forbidden literal, Claude MUST ask the user first, in plain language,
+naming the literal and the reason. Claude proceeds only on explicit
+yes. No silent inclusion, no after-the-fact disclosure.
+
+This rule binds Claude only. It is not enforced by a git hook and
+does not constrain human contributors or CI-generated commits (the
+auto-archive workflow in particular is allowed to keep using these
+markers in its own commit message template, since its commits are
+made by CI and never pass through this directive).
+
+### Entries
+
+1. **GitHub skip-CI markers.** All variants:
+   - `[skip ci]`, `[ci skip]`, `[no ci]`
+   - `[skip actions]`, `[actions skip]`
+   - `[skip-ci]`, `[ci-skip]`
+   - `***NO_CI***`
+   - `skip-checks: true` (trailer form)
+
+   *Why:* a squash-merge inherits the PR body verbatim into a master
+   commit. If the body mentions the marker (even in prose describing
+   what it does), GitHub Actions skips ALL push-triggered workflows
+   for that commit. Past incident: PR #14 merged with `[skip ci]`
+   in the body describing the auto-archive workflow, and the merge
+   silently ran no workflows. To refer to the marker in prose,
+   indirection like *"the GitHub skip-CI marker"* or *"the
+   CI-bypass phrase"* works.

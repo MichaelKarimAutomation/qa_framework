@@ -1,0 +1,119 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 53aded2..b584ebe 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -166,3 +166,39 @@ implementation history without bloating the running tree.
+ 
+ `archived/` is for source files. `ai_coding/archive/` is for completed
+ task-pipeline folders. Do not confuse the two.
++
++## 14. Forbidden Literals in Commit Messages and PR Bodies
++Claude must NOT include any of the literals listed below in a commit
++message, PR title, or PR body it authors in this repo. The list is
++expected to grow over time; new entries follow the same shape (the
++literal, its variants, why it's forbidden).
++
++**Permission carve-out** (applies to every entry below): if Claude
++believes a specific commit or PR genuinely needs to include a
++forbidden literal, Claude MUST ask the user first, in plain language,
++naming the literal and the reason. Claude proceeds only on explicit
++yes. No silent inclusion, no after-the-fact disclosure.
++
++This rule binds Claude only. It is not enforced by a git hook and
++does not constrain human contributors or CI-generated commits (the
++auto-archive workflow in particular is allowed to keep using these
++markers in its own commit message template, since its commits are
++made by CI and never pass through this directive).
++
++### Entries
++
++1. **GitHub skip-CI markers.** All variants:
++   - `[skip ci]`, `[ci skip]`, `[no ci]`
++   - `[skip actions]`, `[actions skip]`
++   - `[skip-ci]`, `[ci-skip]`
++   - `***NO_CI***`
++   - `skip-checks: true` (trailer form)
++
++   *Why:* a squash-merge inherits the PR body verbatim into a master
++   commit. If the body mentions the marker (even in prose describing
++   what it does), GitHub Actions skips ALL push-triggered workflows
++   for that commit. Past incident: PR #14 merged with `[skip ci]`
++   in the body describing the auto-archive workflow, and the merge
++   silently ran no workflows. To refer to the marker in prose,
++   indirection like *"the GitHub skip-CI marker"* or *"the
++   CI-bypass phrase"* works.
+diff --git a/ai_coding/active/forbid-claude-skip-ci/PROGRESS.md b/ai_coding/active/forbid-claude-skip-ci/PROGRESS.md
+new file mode 100644
+index 0000000..6cce465
+--- /dev/null
++++ b/ai_coding/active/forbid-claude-skip-ci/PROGRESS.md
+@@ -0,0 +1,18 @@
++# PROGRESS: forbid-claude-skip-ci
++
++Task: add CLAUDE.md §14 forbidding Claude from writing GitHub skip-CI
++markers in commit messages or PR bodies in this repo, with an
++ask-first carve-out for legitimate exceptions. Designed as an
++extensible list so future forbidden literals can be appended as new
++bullets without restructuring the section.
++
++Branch: feature/forbid-claude-skip-ci
++
++## Done
++- §2 task folder created
++- §3 CLAUDE.md §14 added with section-wide permission carve-out and
++  the skip-CI marker entry seeded
++- §4 affected tests: none (CLAUDE.md is prose; hooks-selftest
++  unchanged, 31/31 still green as sanity)
++- §5 full pytest suite: 37/37 green
++- §6 deep review: VERDICT PASS, no findings
+diff --git a/ai_coding/active/forbid-claude-skip-ci/STATUS b/ai_coding/active/forbid-claude-skip-ci/STATUS
+new file mode 100644
+index 0000000..7ef22e9
+--- /dev/null
++++ b/ai_coding/active/forbid-claude-skip-ci/STATUS
+@@ -0,0 +1 @@
++PASS
+diff --git a/ai_coding/active/forbid-claude-skip-ci/disagreements.log b/ai_coding/active/forbid-claude-skip-ci/disagreements.log
+new file mode 100644
+index 0000000..e69de29
+diff --git a/ai_coding/active/forbid-claude-skip-ci/review.md b/ai_coding/active/forbid-claude-skip-ci/review.md
+new file mode 100644
+index 0000000..2f777ee
+--- /dev/null
++++ b/ai_coding/active/forbid-claude-skip-ci/review.md
+@@ -0,0 +1,35 @@
++# Deep review: forbid-claude-skip-ci
++
++## Scope reviewed
++Single change: CLAUDE.md gets a new §14 "Forbidden Literals in Commit
++Messages and PR Bodies". Designed as an extensible list with a
++section-wide permission carve-out, seeded with one entry for GitHub
++skip-CI markers.
++
++## Test status
++- hooks-selftest.sh: 31/31 (no hook code touched).
++- Full pytest suite: 37/37 in 19.74s. No regressions.
++
++## Findings
++
++### Considered, not flagged
++- The section uses no em-dashes (memory rule honored).
++- The auto-archive workflow carve-out is named explicitly so future
++  readers don't think the workflow YAML's skip-CI usage violates the
++  rule.
++- The permission carve-out is stated once at the section level so it
++  applies to every future bullet without restating per-entry.
++- The phrasing "Claude must NOT include" makes the actor explicit. The
++  rule binds Claude, not the repo's other contributors.
++- Past-incident reference (PR #14) is concrete and gives a future
++  reader the failure they're protecting against.
++
++### Risk areas
++- CLAUDE.md is a directive, not a hook. A misbehaving or non-following
++  Claude instance can still type the forbidden literal. The
++  enforcement is the same as the rest of CLAUDE.md (a contract Claude
++  is asked to follow). The user has already accepted that limit
++  ("mechanical enforcement is not available" was option D and
++  declined).
++
++VERDICT: PASS
