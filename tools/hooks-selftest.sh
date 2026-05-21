@@ -3,7 +3,7 @@
 # against synthetic staged sets in a temp git repo. Asserts each rejection
 # branch of pre-commit and pins the post-commit tri-branch routing fix.
 #
-# Standalone: does not require pytest, ollama, or any project dependency.
+# Standalone: does not require pytest or any project dependency.
 # Run via:  bash tools/hooks-selftest.sh
 #
 # Exit 0 iff every case passes. Exit 1 with a summary of failed cases.
@@ -53,7 +53,7 @@ write_task() {
   printf '%s\n' "$status" > "$dir/STATUS"
   printf '%s' "$dlog" > "$dir/disagreements.log"
   printf 'diff body\n' > "$dir/diff.patch"
-  printf 'review body\n\nVERDICT: %s\n' "$review" > "$dir/review_local.md"
+  printf 'review body\n\nVERDICT: %s\n' "$review" > "$dir/review.md"
   git add "$dir"
 }
 
@@ -119,12 +119,12 @@ rm  ai_coding/active/no-diff/diff.patch
 git rm -q --cached ai_coding/active/no-diff/diff.patch
 expect_pre_fail "05 missing diff.patch rejects"
 
-# 6. Missing review_local.md.
+# 6. Missing review.md.
 init_repo
 write_task "no-review" PASS PASS ""
-rm  ai_coding/active/no-review/review_local.md
-git rm -q --cached ai_coding/active/no-review/review_local.md
-expect_pre_fail "06 missing review_local.md rejects"
+rm  ai_coding/active/no-review/review.md
+git rm -q --cached ai_coding/active/no-review/review.md
+expect_pre_fail "06 missing review.md rejects"
 
 # 7. STATUS present on disk, not staged.
 init_repo
@@ -139,15 +139,37 @@ printf 'FOOBAR\n' > ai_coding/active/bad-status/STATUS
 git add ai_coding/active/bad-status/STATUS
 expect_pre_fail "08 STATUS contents 'FOOBAR' rejects"
 
-# 9. review_local.md VERDICT: FAIL with no [OVERRIDE] in disagreements.log.
+# 8a. STATUS=CAP_REACHED (legacy verdict) rejects — pin against resurfacing.
 init_repo
-write_task "fail-no-override" OVERRIDE FAIL ""
-expect_pre_fail "09 review FAIL without [OVERRIDE]/[CAP_REACHED] rejects"
+write_task "legacy-cap" PASS PASS ""
+printf 'CAP_REACHED\n' > ai_coding/active/legacy-cap/STATUS
+git add ai_coding/active/legacy-cap/STATUS
+expect_pre_fail "08a STATUS=CAP_REACHED (legacy) rejects"
 
-# 10. review_local.md VERDICT: FAIL with valid OVERRIDE override is accepted.
+# 9. review.md VERDICT: FAIL is an intermediate state — always rejects.
 init_repo
-write_task "fail-with-override" OVERRIDE FAIL "[OVERRIDE] reason"
-expect_pre_pass "10 review FAIL + STATUS=OVERRIDE + [OVERRIDE] in disagreements accepts"
+write_task "review-fail" OVERRIDE FAIL "[OVERRIDE] reason"
+expect_pre_fail "09 review.md VERDICT: FAIL rejects (intermediate state)"
+
+# 10. review.md VERDICT: OVERRIDE + STATUS=OVERRIDE + [OVERRIDE] accepts.
+init_repo
+write_task "override-clean" OVERRIDE OVERRIDE "[OVERRIDE] reason"
+expect_pre_pass "10 review OVERRIDE + STATUS=OVERRIDE + [OVERRIDE] accepts"
+
+# 10a. review.md VERDICT: OVERRIDE without [OVERRIDE] in disagreements rejects.
+init_repo
+write_task "override-no-marker" OVERRIDE OVERRIDE ""
+expect_pre_fail "10a review OVERRIDE without [OVERRIDE] marker rejects"
+
+# 10b. review.md VERDICT: OVERRIDE but STATUS=PASS rejects.
+init_repo
+write_task "override-status-mismatch" PASS OVERRIDE "[OVERRIDE] reason"
+expect_pre_fail "10b review OVERRIDE but STATUS=PASS rejects"
+
+# 10c. review.md VERDICT: PASS but STATUS=OVERRIDE rejects.
+init_repo
+write_task "pass-status-mismatch" OVERRIDE PASS "[OVERRIDE] reason"
+expect_pre_fail "10c review PASS but STATUS=OVERRIDE rejects"
 
 # Helper: rename ai_coding/active/<task> → ai_coding/archive/<task> using
 # OS mv + git add -A (Git for Windows' `git mv` is broken on directories;
@@ -191,19 +213,18 @@ expect_pre_pass "13 no ai_coding paths staged accepts"
 #      silently accept reviews that lack a parseable verdict.
 init_repo
 write_task "no-verdict-pass" PASS PASS ""
-# Strip the VERDICT line out of review_local.md.
-sed -i '/^VERDICT:/d' ai_coding/active/no-verdict-pass/review_local.md
-git add ai_coding/active/no-verdict-pass/review_local.md
+# Strip the VERDICT line out of review.md.
+sed -i '/^VERDICT:/d' ai_coding/active/no-verdict-pass/review.md
+git add ai_coding/active/no-verdict-pass/review.md
 expect_pre_fail "13a missing VERDICT line + STATUS=PASS rejects"
 
 # 13b. Missing VERDICT line + STATUS=OVERRIDE + [OVERRIDE] in disagreements.log
-#      → accept. §6 escape hatch must survive a model that misbehaves on the
-#      VERDICT contract. This is the regression pin that protects the OVERRIDE
-#      path against future hook tightening.
+#      → accept. §6 escape hatch must survive a review.md write that misfires.
+#      Regression pin that protects the OVERRIDE path against hook tightening.
 init_repo
 write_task "no-verdict-override" OVERRIDE PASS "[OVERRIDE] reason"
-sed -i '/^VERDICT:/d' ai_coding/active/no-verdict-override/review_local.md
-git add ai_coding/active/no-verdict-override/review_local.md
+sed -i '/^VERDICT:/d' ai_coding/active/no-verdict-override/review.md
+git add ai_coding/active/no-verdict-override/review.md
 expect_pre_pass "13b missing VERDICT line + STATUS=OVERRIDE + [OVERRIDE] accepts"
 
 # =============================================================================
@@ -228,13 +249,19 @@ write_task "good2" PASS PASS ""
 write_msg msg.txt good2 SOMETHING
 expect_msg_fail msg.txt "16 malformed AI-Verdict rejects"
 
-# 17. STATUS vs AI-Verdict mismatch.
+# 16a. CAP_REACHED in AI-Verdict trailer (legacy) rejects — regression pin.
+init_repo
+write_task "legacy-cap-trailer" PASS PASS ""
+write_msg msg.txt legacy-cap-trailer CAP_REACHED
+expect_msg_fail msg.txt "16a AI-Verdict: CAP_REACHED (legacy) rejects"
+
+# 17. STATUS vs AI-Verdict mismatch (STATUS=PASS, AI-Verdict=OVERRIDE).
 init_repo
 write_task "mismatch" PASS PASS ""
-write_msg msg.txt mismatch CAP_REACHED
-expect_msg_fail msg.txt "17 STATUS=PASS but AI-Verdict=CAP_REACHED rejects"
+write_msg msg.txt mismatch OVERRIDE
+expect_msg_fail msg.txt "17 STATUS=PASS but AI-Verdict=OVERRIDE rejects"
 
-# 18. review_local.md VERDICT: FAIL but AI-Verdict=PASS (should reject).
+# 18. review.md VERDICT: FAIL but AI-Verdict=PASS (should reject).
 init_repo
 write_task "review-fail-but-pass-trailer" OVERRIDE FAIL "[OVERRIDE] x"
 # Doctor STATUS to PASS so the STATUS↔trailer check doesn't fire first.
@@ -242,6 +269,12 @@ printf 'PASS\n' > ai_coding/active/review-fail-but-pass-trailer/STATUS
 git add ai_coding/active/review-fail-but-pass-trailer/STATUS
 write_msg msg.txt review-fail-but-pass-trailer PASS
 expect_msg_fail msg.txt "18 review FAIL but AI-Verdict=PASS rejects"
+
+# 18a. review.md VERDICT: OVERRIDE + AI-Verdict=OVERRIDE + STATUS=OVERRIDE accepts.
+init_repo
+write_task "msg-override-clean" OVERRIDE OVERRIDE "[OVERRIDE] x"
+write_msg msg.txt msg-override-clean OVERRIDE
+expect_msg_pass msg.txt "18a OVERRIDE end-to-end accepts"
 
 # 19. Close-out commit-msg shape — pure rename → exempt from consistency checks
 #     (but still requires trailers, which we provide).

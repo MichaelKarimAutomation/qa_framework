@@ -1,0 +1,2751 @@
+diff --git a/.claude/hooks/promptsubmit_status.ps1 b/.claude/hooks/promptsubmit_status.ps1
+index 994bc91..c2dd790 100644
+--- a/.claude/hooks/promptsubmit_status.ps1
++++ b/.claude/hooks/promptsubmit_status.ps1
+@@ -14,7 +14,7 @@ if ($folders.Count -eq 0) {
+     $msg = 'CLAUDE.md PIPELINE STATE: no active task folder under ai_coding/active/. Per CLAUDE.md section 2, the FIRST step before any code edit (Edit/Write/MultiEdit on source files) is to create ai_coding/active/<task>/ with PROGRESS.md, disagreements.log, and STATUS. Read-only ops (Read/Grep/Glob/Bash for git status etc) are unrestricted. The PreToolUse hook will deny edits outside ai_coding/ and .claude/ until a task folder exists.'
+ } else {
+     $names = $folders -join ', '
+-    $msg = "CLAUDE.md PIPELINE STATE: active task folder(s): $names. Continue following CLAUDE.md sections 3-9 (write/update tests, run pytest within cap, invoke ai_coding/reviewer.py, update PROGRESS.md at boundaries, commit with AI-Verdict + AI-Task trailers)."
++    $msg = "CLAUDE.md PIPELINE STATE: active task folder(s): $names. Continue following CLAUDE.md sections 3-9 (write/update tests, run pytest within cap, perform Claude's own deep review per section 6 writing review.md, update PROGRESS.md at boundaries, commit with AI-Verdict + AI-Task trailers)."
+ }
+ 
+ $out = @{
+diff --git a/.github/workflows/auto-archive.yml b/.github/workflows/auto-archive.yml
+new file mode 100644
+index 0000000..566557a
+--- /dev/null
++++ b/.github/workflows/auto-archive.yml
+@@ -0,0 +1,114 @@
++name: Auto-Archive Task Folders
++
++# Sweeps ai_coding/active/<task>/ on every master push. Any folder whose
++# STATUS is PASS or OVERRIDE is moved into ai_coding/archive/<task>/. The
++# workflow's own commit carries [skip ci] so it does not re-trigger itself
++# or the test suite.
++#
++# Skipped when the head commit message contains [auto-archive] — that's
++# how we prevent the workflow from acting on its own previous commit if
++# GitHub ever delivers an out-of-band event.
++
++on:
++  push:
++    branches: [master]
++
++# Serialize: two near-simultaneous master pushes both trigger this workflow;
++# without a concurrency group, the second run's `git push` would race against
++# the first's and one would fail non-fast-forward.
++concurrency:
++  group: auto-archive-master
++  cancel-in-progress: false
++
++jobs:
++  auto_archive:
++    if: "!contains(github.event.head_commit.message, '[auto-archive]')"
++    runs-on: ubuntu-latest
++    permissions:
++      contents: write
++
++    steps:
++      - name: Checkout master
++        uses: actions/checkout@v4
++        with:
++          ref: master
++          fetch-depth: 0
++          token: ${{ secrets.GITHUB_TOKEN }}
++
++      - name: Sweep active/ for PASS / OVERRIDE folders
++        id: sweep
++        shell: bash
++        run: |
++          set -e
++          ACTIVE_DIR="ai_coding/active"
++          ARCHIVE_DIR="ai_coding/archive"
++          MOVED=()
++          if [ ! -d "$ACTIVE_DIR" ]; then
++            echo "No active/ directory; nothing to do."
++            echo "moved_count=0" >> "$GITHUB_OUTPUT"
++            exit 0
++          fi
++
++          for raw in "$ACTIVE_DIR"/*/; do
++            [ -d "$raw" ] || continue
++            # Strip trailing slash so git mv gets a clean directory path.
++            d="${raw%/}"
++            task=$(basename "$d")
++            status_file="$d/STATUS"
++            if [ ! -f "$status_file" ]; then
++              echo "skip: $task has no STATUS file"
++              continue
++            fi
++            status=$(tr -d ' \t\r\n' < "$status_file")
++            case "$status" in
++              PASS|OVERRIDE)
++                echo "archiving: $task (STATUS=$status)"
++                mkdir -p "$ARCHIVE_DIR"
++                # If somehow already exists in archive/, append a timestamp.
++                dest="$ARCHIVE_DIR/$task"
++                if [ -d "$dest" ]; then
++                  dest="${dest}_$(date -u +%Y%m%dT%H%M%SZ)"
++                fi
++                git mv "$d" "$dest"
++                MOVED+=("$task")
++                ;;
++              *)
++                echo "skip: $task STATUS=$status"
++                ;;
++            esac
++          done
++
++          printf 'moved_count=%d\n' "${#MOVED[@]}" >> "$GITHUB_OUTPUT"
++          if [ "${#MOVED[@]}" -gt 0 ]; then
++            { printf 'moved<<EOF\n'
++              printf '%s\n' "${MOVED[@]}"
++              printf 'EOF\n'
++            } >> "$GITHUB_OUTPUT"
++          fi
++
++      - name: Commit and push archive moves
++        if: steps.sweep.outputs.moved_count != '0'
++        shell: bash
++        env:
++          MOVED: ${{ steps.sweep.outputs.moved }}
++        run: |
++          set -e
++          git config user.name  "github-actions[bot]"
++          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
++
++          # Build commit message. Subject includes [skip ci] so this push
++          # does not retrigger tests.yml. Body lists archived tasks. The
++          # AI-Task trailer is a sentinel value ('auto-archive') since one
++          # commit can move multiple task folders; the close-out exemption
++          # in pre-commit / commit-msg recognises pure active->archive
++          # renames and skips per-task consistency checks.
++          {
++            printf 'chore(auto-archive): move task folders to archive [skip ci] [auto-archive]\n\n'
++            printf 'Archived tasks (STATUS in {PASS, OVERRIDE}):\n'
++            printf '%s\n' "$MOVED" | sed 's/^/  - /'
++            printf '\nAI-Verdict: PASS\n'
++            printf 'AI-Task: auto-archive\n'
++          } > /tmp/commit-msg.txt
++
++          git commit -F /tmp/commit-msg.txt
++          git push origin master
+diff --git a/.github/workflows/tests.yml b/.github/workflows/tests.yml
+index 7a66612..9dfa0e6 100644
+--- a/.github/workflows/tests.yml
++++ b/.github/workflows/tests.yml
+@@ -32,7 +32,7 @@ jobs:
+           # --- 1. Detect pipeline involvement (authoritative: task folder) ---
+           PIPELINE_TOUCHED=false
+           if git log "$BASE_SHA".."$HEAD_SHA" --name-only --pretty=format: \
+-               | grep -E '^ai_coding/(active|archive|quarantine)/[^/]+/' -q; then
++               | grep -E '^ai_coding/(active|archive)/[^/]+/' -q; then
+             PIPELINE_TOUCHED=true
+           fi
+ 
+@@ -67,11 +67,8 @@ jobs:
+               continue
+             fi
+             case "$VERDICT" in
+-              PASS)
+-                echo "OK: $SHA AI-Verdict: PASS" ;;
+-              CAP_REACHED|OVERRIDE)
+-                echo "::error::$SHA AI-Verdict: $VERDICT — unresolved, must be cleared before merge."
+-                FAIL=true ;;
++              PASS|OVERRIDE)
++                echo "OK: $SHA AI-Verdict: $VERDICT" ;;
+               *)
+                 echo "::error::$SHA has malformed AI-Verdict: '$VERDICT'."
+                 FAIL=true ;;
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 86edee8..0d9fb4d 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -8,10 +8,6 @@ changing this file.
+ - Repo root: C:\Coding\qa_framework
+ - OS: Windows
+ - Test command: `uv run pytest`
+-- Local review model: `qwen3-coder:30b` via Ollama HTTP API at
+-  http://localhost:11434 — NEVER the ollama CLI (VS Code PATH staleness).
+-- Fallback models if 30b underperforms: `deepseek-coder-v2:16b`,
+-  `qwen2.5-coder` (documented only; do not switch without user instruction).
+ 
+ ## 1. Workflow Scope
+ - One feature at a time, in one Claude Code session.
+@@ -23,7 +19,7 @@ changing this file.
+   There is no casual mode. Doc tweaks, folder renames, gitignore changes,
+   single-line fixes, and `git mv` archive operations all trigger the
+   §2-§7 pipeline — task folder, tests if applicable, §5 full-suite run,
+-  §6 reviewer.py, commit with trailers. A small request is not an exemption.
++  §6 deep review, commit with trailers. A small request is not an exemption.
+ 
+ ## 2. Task Folder (create at start of every task)
+ For task `<task>`, create:
+@@ -32,14 +28,19 @@ For task `<task>`, create:
+       diff.patch          (final diff for the commit)
+       disagreements.log   (see §6)
+       PROGRESS.md         (see §9)
+-      review_local.md     (local AI review output)
+-      STATUS              (single token: PASS | CAP_REACHED | OVERRIDE)
++      review.md           (Claude's own deep review output)
++      STATUS              (single token: PASS | OVERRIDE)
+ 
+ `<task>` is a short kebab-case name (e.g. `login-retry-fix`). It is the
+ identity used in the AI-Task trailer and for hook routing. If a folder for a
+ different task already exists in active/, that is expected and fine — folders
+ are isolated; do not move or disturb another task's folder.
+ 
++Note: `review.md` may end with `VERDICT: FAIL` as an intermediate state
++during the §6 loop. FAIL is never a STATUS or AI-Verdict value; it only
++lives in `review.md` until the verdict becomes PASS (after a fix) or
++OVERRIDE (after human acceptance). See §6.
++
+ ## 3. Implementation + Test Rule
+ - Implement the requested change AND write/update tests for it.
+ - The task is NOT complete until tests pass.
+@@ -51,12 +52,12 @@ are isolated; do not move or disturb another task's folder.
+ - If still failing after 3 iterations:
+   - Tag: `[TEST_CAP_REACHED]`
+   - Write it to disagreements.log (§6)
+-  - Set STATUS file is NOT written (no commit happens)
++  - STATUS file is NOT written (no commit happens)
+   - **HALT. Do NOT commit.** Notify the user (§10). Wait for human action.
+ 
+ ## 5. Final Full-Suite Run (once, after inner loop is green)
+ - After affected tests pass, run the FULL suite exactly once: `uv run pytest`.
+-- If the full suite passes → proceed to §6 local review.
++- If the full suite passes → proceed to §6 deep review.
+ - If the full suite FAILS (regression in untouched code):
+   - Tag: `[FULL_SUITE_FAILED]`
+   - Write it to disagreements.log
+@@ -64,32 +65,30 @@ are isolated; do not move or disturb another task's folder.
+   - This is an objective failure, NOT a judgment call. It must never fall
+     through to the review step or be overridden.
+ 
+-## 6. Local AI Review + Judgment
++## 6. Deep Review (Claude's own, no local LLM)
+ - Generate the diff, save to ai_coding/active/<task>/diff.patch.
+-- Send the diff to the local model via reviewer.py (HTTP API).
+-- The local model returns prose ending with `VERDICT: PASS` or
+-  `VERDICT: FAIL` on the last line. Save full output to review_local.md.
+-- You (Claude Code) are the JUDGE, not a blind executor:
+-  - Legitimate issue → fix it, regenerate diff, re-run local review.
+-    This counts toward the OUTER cap (= 2 iterations).
+-  - Disagreement (model is wrong / nitpicking / not applicable) → record an
+-    `[OVERRIDE]` entry in disagreements.log with your reasoning, then proceed.
+-    The verdict is advisory, not binding.
+-  - If the outer cap (2) is exhausted with unresolved issues:
+-    - Tag: `[CAP_REACHED]`
+-    - Record unresolved issues + last attempt summary in disagreements.log
+-    - Proceed to commit on the working branch (this is allowed by design),
+-      then notify the user with urgency.
++- Claude re-reads the diff, the touched source files, and the relevant test
++  output. The goal: find real bugs, correctness defects, security issues,
++  significant logic problems. Ignore pure style and formatting.
++- Claude writes the full review to review.md, ending with exactly one
++  line: `VERDICT: PASS` or `VERDICT: FAIL`.
++  - **PASS** → write STATUS=PASS, proceed to §7 commit.
++  - **FAIL** → show findings in chat and ask the human, in one concise
++    line: *"Deep review found issues — fix, or accept as OVERRIDE?"*
++    - *fix* → address the findings, regenerate the diff, re-run the deep
++      review. Repeat until PASS or until the human accepts OVERRIDE. There
++      is no cap on this loop — each iteration is human-gated by the chat
++      prompt, so the human controls when to stop.
++    - *override* → rewrite review.md's last line to `VERDICT: OVERRIDE`,
++      append an `[OVERRIDE]` entry to disagreements.log with the accepted
++      issues and the human's stated reasoning, write STATUS=OVERRIDE,
++      proceed to §7 commit.
+ 
+ ### disagreements.log format
+-    [YYYY-MM-DD HH:MM] [OVERRIDE] commit <sha>
+-      Local model flagged: "<issue>"
+-      Claude Code reasoning: "<why overridden>"
+ 
+-    [YYYY-MM-DD HH:MM] [CAP_REACHED] commit <sha>
+-      Iterations: 2
+-      Unresolved issues: [list]
+-      Last attempt: [summary]
++    [YYYY-MM-DD HH:MM] [OVERRIDE] commit <sha>
++      Findings: "<list of issues Claude flagged>"
++      Human reasoning: "<why accepted>"
+ 
+     [YYYY-MM-DD HH:MM] [TEST_CAP_REACHED]   (no commit — halted)
+       Failing tests: [list]
+@@ -99,36 +98,34 @@ are isolated; do not move or disturb another task's folder.
+       Failing tests: [list]
+ 
+ ## 7. Commit
+-Only reached when §4 passed, §5 passed, and §6 resolved (PASS) or
+-[CAP_REACHED]/[OVERRIDE].
++Only reached when §4 passed, §5 passed, and §6 resolved (PASS or OVERRIDE).
+ - Commit to the working branch only. NEVER main.
+-- Write STATUS file with the final verdict token: PASS | CAP_REACHED | OVERRIDE
++- Write STATUS file with the final verdict token: PASS | OVERRIDE
+ - The commit message MUST include both trailers, on their own lines, at the
+   end of the message:
+ 
+-      AI-Verdict: PASS | CAP_REACHED | OVERRIDE
++      AI-Verdict: PASS | OVERRIDE
+       AI-Task: <task>
+ 
+   These are load-bearing. The merge gate and the post-commit hook depend on
+   them. Omitting them is a defect, not a shortcut.
+ 
+ ## 8. Post-Commit (automatic, do not invoke manually)
+-The .git/hooks/post-commit hook reads the AI-Task trailer and routes the
++The post-commit hook reads the AI-Task trailer and routes the
+ committed diff into ai_coding/active/<task>/. You do not call this; it fires
+ on commit. Just ensure the trailer is correct.
+ 
+ ## 9. PROGRESS.md Checkpointing
+ - Update ai_coding/active/<task>/PROGRESS.md at MEANINGFUL BOUNDARIES only:
+-  (a) inner loop green, (b) post local-review judgment, (c) post-commit.
++  (a) inner loop green, (b) post deep-review judgment, (c) post-commit.
+   NOT every step — per-step writes spend the very budget they protect.
+ - Record: current task, branch, steps completed, steps remaining, pending
+   decisions/issues.
+ - Record verdicts and iteration descriptions only — e.g. `pytest 22/22 green`,
+-  `reviewer PASS`, `iteration 3: <what changed>`. Do NOT write commit SHAs
++  `deep review PASS`, `iteration 3: <what changed>`. Do NOT write commit SHAs
+   or `(pending)` / `(TBD)` markers that forward-reference artifacts which
+   do not yet exist. The git log is the authoritative SHA record; duplicating
+-  SHAs in PROGRESS.md just creates staleness (forward-reference placeholders
+-  rot in place because the writer rarely circles back to fill them in).
++  SHAs in PROGRESS.md just creates staleness.
+ - Honest limitation (do not overstate to the user): nothing COMMITTED is
+   lost on session death; in-loop progress since the last boundary may repeat.
+   The test-fix loop is the least-protected phase. Do not claim "nothing is
+@@ -139,31 +136,33 @@ on commit. Just ensure the trailer is correct.
+ 
+ ## 10. Notifications
+ Routine completion and urgent halts are surfaced via desktop notification
+-(plyer), triggered by reviewer.py or the post-commit hook. Urgent =
+-[TEST_CAP_REACHED], [FULL_SUITE_FAILED], [CAP_REACHED]. Routine = clean commit.
+-
+-## 11. Deep Review (manual, user-initiated, SAME session)
+-When the user asks for a deep review:
+-- Read all diffs/logs in ai_coding/active/ and the actual source files
+-  (filesystem access is why review happens here, not in web UI).
+-- Pay special attention to commits tagged [CAP_REACHED] / [OVERRIDE] and any
+-  halted tasks.
+-- After the review, archive reviewed CLEAN-PASS task folders to
+-  ai_coding/archive/ (consumption-based clearing). Leave [CAP_REACHED] /
+-  [OVERRIDE] folders in place — they go to quarantine, cleared manually only.
+-
+-## 12. /clear Timing — DECIDED: Point B
+-You cannot clear your own context. Therefore:
+-- Do NOT prompt for /clear before the deep review.
+-- AFTER the deep review is complete and clean-pass folders archived, and
+-  BEFORE the next feature begins, explicitly prompt the user:
+-  "Deep review complete. Run /clear before starting the next feature."
+-Rationale (do not re-litigate): clearing before review would destroy the
+-build reasoning the review depends on. Point B preserves context-aware
+-review. This is settled unless the user changes this file.
+-
+-## 13. Cap Tuning Tradeoff (read before changing §4/§6 caps)
+-Inner cap 3 / outer cap 2 are tuned for token economy. Raising them shifts
+-cost from "Claude Code tokens now" to "human merge-review load later" — more
+-[CAP_REACHED] commits reach the merge gate, the one manual safeguard. This
+-cost is invisible at the point of change. Tune deliberately.
++(plyer), triggered by the post-commit hook. Urgent =
++[TEST_CAP_REACHED], [FULL_SUITE_FAILED]. Routine = clean commit.
++
++## 11. Auto-Archive on Merge
++A GitHub Actions workflow (`.github/workflows/auto-archive.yml`) runs on
++every push to `master`. It scans `ai_coding/active/` for task folders whose
++STATUS is `PASS` or `OVERRIDE` and moves them to `ai_coding/archive/`.
++The workflow's own commit uses `[skip ci]` so it does not loop. You never
++move a finished task folder by hand.
++
++OVERRIDE folders are archived alongside PASS — the chat-only OVERRIDE
++acceptance in §6 is the gate, and once it's committed and merged, the
++folder no longer belongs in `active/`.
++
++## 12. /clear Timing
++After the §7 commit and before starting the next feature, prompt the user:
++"Commit done. Run /clear before starting the next feature."
++
++You cannot clear your own context, so this is a reminder, not an action.
++Running /clear yourself wipes the build reasoning that the post-commit
++context relies on, so don't prompt for it earlier in the flow.
++
++## 13. Archiving Deprecated Source Files
++When a feature is removed (not just refactored), copy the original file(s)
++to `archived/` BEFORE deleting from the source location. Add a one-line
++header noting the deprecation date and what replaced it. This preserves
++implementation history without bloating the running tree.
++
++`archived/` is for source files. `ai_coding/archive/` is for completed
++task-pipeline folders. Do not confuse the two.
+diff --git a/README.md b/README.md
+index dfdaf2a..57607cb 100644
+--- a/README.md
++++ b/README.md
+@@ -61,7 +61,8 @@ qa_framework/
+ ├── tools/                  # Git hook installers + versioned hooks under tools/hooks/
+ ├── docs/                   # Sphinx source + bundled HTML install guides
+ ├── .github/workflows/      # GitHub Actions CI pipelines (tests + docs deploy)
+-├── ai_coding/              # CLAUDE.md task pipeline (active/, archive/, reviewer.py)
++├── ai_coding/              # CLAUDE.md task pipeline (active/, archive/, clear_queue.py)
++├── archived/               # Deprecated source files (graveyard) — see CLAUDE.md §13
+ ├── .env.example            # Required env-var template; conftest validates against it
+ ├── Dockerfile              # Container definition
+ ├── Makefile                # Developer shortcuts (run `make help`)
+@@ -96,9 +97,9 @@ bash tools/install-hooks.sh
+ ```
+ 
+ The hooks check the CLAUDE.md §2-§7 rules on each commit: required task
+-files are present, STATUS is valid, commit trailers match the local
+-review, and diffs land in the right task folder. To verify the hooks
+-without running pytest or ollama, run the self-test:
++files are present, STATUS is valid, commit trailers match the deep
++review verdict, and diffs land in the right task folder. To verify the
++hooks without running pytest, run the self-test:
+ 
+ ```bash
+ bash tools/hooks-selftest.sh
+diff --git a/ai_coding/active/remove-local-llm-review/PROGRESS.md b/ai_coding/active/remove-local-llm-review/PROGRESS.md
+new file mode 100644
+index 0000000..780a585
+--- /dev/null
++++ b/ai_coding/active/remove-local-llm-review/PROGRESS.md
+@@ -0,0 +1,19 @@
++# PROGRESS — remove-local-llm-review
++
++Task: remove the local LLM (Ollama / qwen3-coder) review step. Claude performs
++the deep review itself in §6. Add `archived/` graveyard. Add auto-archive
++workflow on master push. Remove CAP_REACHED verdict and the quarantine bucket.
++
++Branch: feature/remove-local-llm-review
++
++## Done
++- §2 task folder + initial artifacts
++- §3 implementation across CLAUDE.md, README.md, hooks, workflows, docs,
++  promptsubmit_status, clear_queue.py
++- §3 archived/ graveyard created with reviewer.py copy and README
++- §3 reviewer.py deleted from ai_coding/, quarantine/ removed
++- §3 new workflow .github/workflows/auto-archive.yml
++- §4 affected tests (hooks-selftest.sh) 31/31 green on first attempt
++- §5 full suite: 37/37 pytest green
++- §6 self deep review: VERDICT PASS (after two pre-verdict fixes to the
++  auto-archive workflow — trailing-slash + concurrency)
+diff --git a/ai_coding/active/remove-local-llm-review/STATUS b/ai_coding/active/remove-local-llm-review/STATUS
+new file mode 100644
+index 0000000..7ef22e9
+--- /dev/null
++++ b/ai_coding/active/remove-local-llm-review/STATUS
+@@ -0,0 +1 @@
++PASS
+diff --git a/ai_coding/active/remove-local-llm-review/diff.patch b/ai_coding/active/remove-local-llm-review/diff.patch
+new file mode 100644
+index 0000000..d794284
+--- /dev/null
++++ b/ai_coding/active/remove-local-llm-review/diff.patch
+@@ -0,0 +1,1322 @@
++diff --git a/.claude/hooks/promptsubmit_status.ps1 b/.claude/hooks/promptsubmit_status.ps1
++index 994bc91..c2dd790 100644
++--- a/.claude/hooks/promptsubmit_status.ps1
+++++ b/.claude/hooks/promptsubmit_status.ps1
++@@ -14,7 +14,7 @@ if ($folders.Count -eq 0) {
++     $msg = 'CLAUDE.md PIPELINE STATE: no active task folder under ai_coding/active/. Per CLAUDE.md section 2, the FIRST step before any code edit (Edit/Write/MultiEdit on source files) is to create ai_coding/active/<task>/ with PROGRESS.md, disagreements.log, and STATUS. Read-only ops (Read/Grep/Glob/Bash for git status etc) are unrestricted. The PreToolUse hook will deny edits outside ai_coding/ and .claude/ until a task folder exists.'
++ } else {
++     $names = $folders -join ', '
++-    $msg = "CLAUDE.md PIPELINE STATE: active task folder(s): $names. Continue following CLAUDE.md sections 3-9 (write/update tests, run pytest within cap, invoke ai_coding/reviewer.py, update PROGRESS.md at boundaries, commit with AI-Verdict + AI-Task trailers)."
+++    $msg = "CLAUDE.md PIPELINE STATE: active task folder(s): $names. Continue following CLAUDE.md sections 3-9 (write/update tests, run pytest within cap, perform Claude's own deep review per section 6 writing review.md, update PROGRESS.md at boundaries, commit with AI-Verdict + AI-Task trailers)."
++ }
++ 
++ $out = @{
++diff --git a/.github/workflows/auto-archive.yml b/.github/workflows/auto-archive.yml
++new file mode 100644
++index 0000000..35ed5a6
++--- /dev/null
+++++ b/.github/workflows/auto-archive.yml
++@@ -0,0 +1,105 @@
+++name: Auto-Archive Task Folders
+++
+++# Sweeps ai_coding/active/<task>/ on every master push. Any folder whose
+++# STATUS is PASS or OVERRIDE is moved into ai_coding/archive/<task>/. The
+++# workflow's own commit carries [skip ci] so it does not re-trigger itself
+++# or the test suite.
+++#
+++# Skipped when the head commit message contains [auto-archive] — that's
+++# how we prevent the workflow from acting on its own previous commit if
+++# GitHub ever delivers an out-of-band event.
+++
+++on:
+++  push:
+++    branches: [master]
+++
+++jobs:
+++  auto_archive:
+++    if: "!contains(github.event.head_commit.message, '[auto-archive]')"
+++    runs-on: ubuntu-latest
+++    permissions:
+++      contents: write
+++
+++    steps:
+++      - name: Checkout master
+++        uses: actions/checkout@v4
+++        with:
+++          ref: master
+++          fetch-depth: 0
+++          token: ${{ secrets.GITHUB_TOKEN }}
+++
+++      - name: Sweep active/ for PASS / OVERRIDE folders
+++        id: sweep
+++        shell: bash
+++        run: |
+++          set -e
+++          ACTIVE_DIR="ai_coding/active"
+++          ARCHIVE_DIR="ai_coding/archive"
+++          MOVED=()
+++          if [ ! -d "$ACTIVE_DIR" ]; then
+++            echo "No active/ directory; nothing to do."
+++            echo "moved_count=0" >> "$GITHUB_OUTPUT"
+++            exit 0
+++          fi
+++
+++          for d in "$ACTIVE_DIR"/*/; do
+++            [ -d "$d" ] || continue
+++            task=$(basename "$d")
+++            status_file="$d/STATUS"
+++            if [ ! -f "$status_file" ]; then
+++              echo "skip: $task has no STATUS file"
+++              continue
+++            fi
+++            status=$(tr -d ' \t\r\n' < "$status_file")
+++            case "$status" in
+++              PASS|OVERRIDE)
+++                echo "archiving: $task (STATUS=$status)"
+++                mkdir -p "$ARCHIVE_DIR"
+++                # If somehow already exists in archive/, append a timestamp.
+++                dest="$ARCHIVE_DIR/$task"
+++                if [ -d "$dest" ]; then
+++                  dest="${dest}_$(date -u +%Y%m%dT%H%M%SZ)"
+++                fi
+++                git mv "$d" "$dest"
+++                MOVED+=("$task")
+++                ;;
+++              *)
+++                echo "skip: $task STATUS=$status"
+++                ;;
+++            esac
+++          done
+++
+++          printf 'moved_count=%d\n' "${#MOVED[@]}" >> "$GITHUB_OUTPUT"
+++          if [ "${#MOVED[@]}" -gt 0 ]; then
+++            { printf 'moved<<EOF\n'
+++              printf '%s\n' "${MOVED[@]}"
+++              printf 'EOF\n'
+++            } >> "$GITHUB_OUTPUT"
+++          fi
+++
+++      - name: Commit and push archive moves
+++        if: steps.sweep.outputs.moved_count != '0'
+++        shell: bash
+++        env:
+++          MOVED: ${{ steps.sweep.outputs.moved }}
+++        run: |
+++          set -e
+++          git config user.name  "github-actions[bot]"
+++          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+++
+++          # Build commit message. Subject includes [skip ci] so this push
+++          # does not retrigger tests.yml. Body lists archived tasks. The
+++          # AI-Task trailer is a sentinel value ('auto-archive') since one
+++          # commit can move multiple task folders; the close-out exemption
+++          # in pre-commit / commit-msg recognises pure active->archive
+++          # renames and skips per-task consistency checks.
+++          {
+++            printf 'chore(auto-archive): move task folders to archive [skip ci] [auto-archive]\n\n'
+++            printf 'Archived tasks (STATUS in {PASS, OVERRIDE}):\n'
+++            printf '%s\n' "$MOVED" | sed 's/^/  - /'
+++            printf '\nAI-Verdict: PASS\n'
+++            printf 'AI-Task: auto-archive\n'
+++          } > /tmp/commit-msg.txt
+++
+++          git commit -F /tmp/commit-msg.txt
+++          git push origin master
++diff --git a/.github/workflows/tests.yml b/.github/workflows/tests.yml
++index 7a66612..9dfa0e6 100644
++--- a/.github/workflows/tests.yml
+++++ b/.github/workflows/tests.yml
++@@ -32,7 +32,7 @@ jobs:
++           # --- 1. Detect pipeline involvement (authoritative: task folder) ---
++           PIPELINE_TOUCHED=false
++           if git log "$BASE_SHA".."$HEAD_SHA" --name-only --pretty=format: \
++-               | grep -E '^ai_coding/(active|archive|quarantine)/[^/]+/' -q; then
+++               | grep -E '^ai_coding/(active|archive)/[^/]+/' -q; then
++             PIPELINE_TOUCHED=true
++           fi
++ 
++@@ -67,11 +67,8 @@ jobs:
++               continue
++             fi
++             case "$VERDICT" in
++-              PASS)
++-                echo "OK: $SHA AI-Verdict: PASS" ;;
++-              CAP_REACHED|OVERRIDE)
++-                echo "::error::$SHA AI-Verdict: $VERDICT — unresolved, must be cleared before merge."
++-                FAIL=true ;;
+++              PASS|OVERRIDE)
+++                echo "OK: $SHA AI-Verdict: $VERDICT" ;;
++               *)
++                 echo "::error::$SHA has malformed AI-Verdict: '$VERDICT'."
++                 FAIL=true ;;
++diff --git a/CLAUDE.md b/CLAUDE.md
++index 86edee8..0d9fb4d 100644
++--- a/CLAUDE.md
+++++ b/CLAUDE.md
++@@ -8,10 +8,6 @@ changing this file.
++ - Repo root: C:\Coding\qa_framework
++ - OS: Windows
++ - Test command: `uv run pytest`
++-- Local review model: `qwen3-coder:30b` via Ollama HTTP API at
++-  http://localhost:11434 — NEVER the ollama CLI (VS Code PATH staleness).
++-- Fallback models if 30b underperforms: `deepseek-coder-v2:16b`,
++-  `qwen2.5-coder` (documented only; do not switch without user instruction).
++ 
++ ## 1. Workflow Scope
++ - One feature at a time, in one Claude Code session.
++@@ -23,7 +19,7 @@ changing this file.
++   There is no casual mode. Doc tweaks, folder renames, gitignore changes,
++   single-line fixes, and `git mv` archive operations all trigger the
++   §2-§7 pipeline — task folder, tests if applicable, §5 full-suite run,
++-  §6 reviewer.py, commit with trailers. A small request is not an exemption.
+++  §6 deep review, commit with trailers. A small request is not an exemption.
++ 
++ ## 2. Task Folder (create at start of every task)
++ For task `<task>`, create:
++@@ -32,14 +28,19 @@ For task `<task>`, create:
++       diff.patch          (final diff for the commit)
++       disagreements.log   (see §6)
++       PROGRESS.md         (see §9)
++-      review_local.md     (local AI review output)
++-      STATUS              (single token: PASS | CAP_REACHED | OVERRIDE)
+++      review.md           (Claude's own deep review output)
+++      STATUS              (single token: PASS | OVERRIDE)
++ 
++ `<task>` is a short kebab-case name (e.g. `login-retry-fix`). It is the
++ identity used in the AI-Task trailer and for hook routing. If a folder for a
++ different task already exists in active/, that is expected and fine — folders
++ are isolated; do not move or disturb another task's folder.
++ 
+++Note: `review.md` may end with `VERDICT: FAIL` as an intermediate state
+++during the §6 loop. FAIL is never a STATUS or AI-Verdict value; it only
+++lives in `review.md` until the verdict becomes PASS (after a fix) or
+++OVERRIDE (after human acceptance). See §6.
+++
++ ## 3. Implementation + Test Rule
++ - Implement the requested change AND write/update tests for it.
++ - The task is NOT complete until tests pass.
++@@ -51,12 +52,12 @@ are isolated; do not move or disturb another task's folder.
++ - If still failing after 3 iterations:
++   - Tag: `[TEST_CAP_REACHED]`
++   - Write it to disagreements.log (§6)
++-  - Set STATUS file is NOT written (no commit happens)
+++  - STATUS file is NOT written (no commit happens)
++   - **HALT. Do NOT commit.** Notify the user (§10). Wait for human action.
++ 
++ ## 5. Final Full-Suite Run (once, after inner loop is green)
++ - After affected tests pass, run the FULL suite exactly once: `uv run pytest`.
++-- If the full suite passes → proceed to §6 local review.
+++- If the full suite passes → proceed to §6 deep review.
++ - If the full suite FAILS (regression in untouched code):
++   - Tag: `[FULL_SUITE_FAILED]`
++   - Write it to disagreements.log
++@@ -64,32 +65,30 @@ are isolated; do not move or disturb another task's folder.
++   - This is an objective failure, NOT a judgment call. It must never fall
++     through to the review step or be overridden.
++ 
++-## 6. Local AI Review + Judgment
+++## 6. Deep Review (Claude's own, no local LLM)
++ - Generate the diff, save to ai_coding/active/<task>/diff.patch.
++-- Send the diff to the local model via reviewer.py (HTTP API).
++-- The local model returns prose ending with `VERDICT: PASS` or
++-  `VERDICT: FAIL` on the last line. Save full output to review_local.md.
++-- You (Claude Code) are the JUDGE, not a blind executor:
++-  - Legitimate issue → fix it, regenerate diff, re-run local review.
++-    This counts toward the OUTER cap (= 2 iterations).
++-  - Disagreement (model is wrong / nitpicking / not applicable) → record an
++-    `[OVERRIDE]` entry in disagreements.log with your reasoning, then proceed.
++-    The verdict is advisory, not binding.
++-  - If the outer cap (2) is exhausted with unresolved issues:
++-    - Tag: `[CAP_REACHED]`
++-    - Record unresolved issues + last attempt summary in disagreements.log
++-    - Proceed to commit on the working branch (this is allowed by design),
++-      then notify the user with urgency.
+++- Claude re-reads the diff, the touched source files, and the relevant test
+++  output. The goal: find real bugs, correctness defects, security issues,
+++  significant logic problems. Ignore pure style and formatting.
+++- Claude writes the full review to review.md, ending with exactly one
+++  line: `VERDICT: PASS` or `VERDICT: FAIL`.
+++  - **PASS** → write STATUS=PASS, proceed to §7 commit.
+++  - **FAIL** → show findings in chat and ask the human, in one concise
+++    line: *"Deep review found issues — fix, or accept as OVERRIDE?"*
+++    - *fix* → address the findings, regenerate the diff, re-run the deep
+++      review. Repeat until PASS or until the human accepts OVERRIDE. There
+++      is no cap on this loop — each iteration is human-gated by the chat
+++      prompt, so the human controls when to stop.
+++    - *override* → rewrite review.md's last line to `VERDICT: OVERRIDE`,
+++      append an `[OVERRIDE]` entry to disagreements.log with the accepted
+++      issues and the human's stated reasoning, write STATUS=OVERRIDE,
+++      proceed to §7 commit.
++ 
++ ### disagreements.log format
++-    [YYYY-MM-DD HH:MM] [OVERRIDE] commit <sha>
++-      Local model flagged: "<issue>"
++-      Claude Code reasoning: "<why overridden>"
++ 
++-    [YYYY-MM-DD HH:MM] [CAP_REACHED] commit <sha>
++-      Iterations: 2
++-      Unresolved issues: [list]
++-      Last attempt: [summary]
+++    [YYYY-MM-DD HH:MM] [OVERRIDE] commit <sha>
+++      Findings: "<list of issues Claude flagged>"
+++      Human reasoning: "<why accepted>"
++ 
++     [YYYY-MM-DD HH:MM] [TEST_CAP_REACHED]   (no commit — halted)
++       Failing tests: [list]
++@@ -99,36 +98,34 @@ are isolated; do not move or disturb another task's folder.
++       Failing tests: [list]
++ 
++ ## 7. Commit
++-Only reached when §4 passed, §5 passed, and §6 resolved (PASS) or
++-[CAP_REACHED]/[OVERRIDE].
+++Only reached when §4 passed, §5 passed, and §6 resolved (PASS or OVERRIDE).
++ - Commit to the working branch only. NEVER main.
++-- Write STATUS file with the final verdict token: PASS | CAP_REACHED | OVERRIDE
+++- Write STATUS file with the final verdict token: PASS | OVERRIDE
++ - The commit message MUST include both trailers, on their own lines, at the
++   end of the message:
++ 
++-      AI-Verdict: PASS | CAP_REACHED | OVERRIDE
+++      AI-Verdict: PASS | OVERRIDE
++       AI-Task: <task>
++ 
++   These are load-bearing. The merge gate and the post-commit hook depend on
++   them. Omitting them is a defect, not a shortcut.
++ 
++ ## 8. Post-Commit (automatic, do not invoke manually)
++-The .git/hooks/post-commit hook reads the AI-Task trailer and routes the
+++The post-commit hook reads the AI-Task trailer and routes the
++ committed diff into ai_coding/active/<task>/. You do not call this; it fires
++ on commit. Just ensure the trailer is correct.
++ 
++ ## 9. PROGRESS.md Checkpointing
++ - Update ai_coding/active/<task>/PROGRESS.md at MEANINGFUL BOUNDARIES only:
++-  (a) inner loop green, (b) post local-review judgment, (c) post-commit.
+++  (a) inner loop green, (b) post deep-review judgment, (c) post-commit.
++   NOT every step — per-step writes spend the very budget they protect.
++ - Record: current task, branch, steps completed, steps remaining, pending
++   decisions/issues.
++ - Record verdicts and iteration descriptions only — e.g. `pytest 22/22 green`,
++-  `reviewer PASS`, `iteration 3: <what changed>`. Do NOT write commit SHAs
+++  `deep review PASS`, `iteration 3: <what changed>`. Do NOT write commit SHAs
++   or `(pending)` / `(TBD)` markers that forward-reference artifacts which
++   do not yet exist. The git log is the authoritative SHA record; duplicating
++-  SHAs in PROGRESS.md just creates staleness (forward-reference placeholders
++-  rot in place because the writer rarely circles back to fill them in).
+++  SHAs in PROGRESS.md just creates staleness.
++ - Honest limitation (do not overstate to the user): nothing COMMITTED is
++   lost on session death; in-loop progress since the last boundary may repeat.
++   The test-fix loop is the least-protected phase. Do not claim "nothing is
++@@ -139,31 +136,33 @@ on commit. Just ensure the trailer is correct.
++ 
++ ## 10. Notifications
++ Routine completion and urgent halts are surfaced via desktop notification
++-(plyer), triggered by reviewer.py or the post-commit hook. Urgent =
++-[TEST_CAP_REACHED], [FULL_SUITE_FAILED], [CAP_REACHED]. Routine = clean commit.
++-
++-## 11. Deep Review (manual, user-initiated, SAME session)
++-When the user asks for a deep review:
++-- Read all diffs/logs in ai_coding/active/ and the actual source files
++-  (filesystem access is why review happens here, not in web UI).
++-- Pay special attention to commits tagged [CAP_REACHED] / [OVERRIDE] and any
++-  halted tasks.
++-- After the review, archive reviewed CLEAN-PASS task folders to
++-  ai_coding/archive/ (consumption-based clearing). Leave [CAP_REACHED] /
++-  [OVERRIDE] folders in place — they go to quarantine, cleared manually only.
++-
++-## 12. /clear Timing — DECIDED: Point B
++-You cannot clear your own context. Therefore:
++-- Do NOT prompt for /clear before the deep review.
++-- AFTER the deep review is complete and clean-pass folders archived, and
++-  BEFORE the next feature begins, explicitly prompt the user:
++-  "Deep review complete. Run /clear before starting the next feature."
++-Rationale (do not re-litigate): clearing before review would destroy the
++-build reasoning the review depends on. Point B preserves context-aware
++-review. This is settled unless the user changes this file.
++-
++-## 13. Cap Tuning Tradeoff (read before changing §4/§6 caps)
++-Inner cap 3 / outer cap 2 are tuned for token economy. Raising them shifts
++-cost from "Claude Code tokens now" to "human merge-review load later" — more
++-[CAP_REACHED] commits reach the merge gate, the one manual safeguard. This
++-cost is invisible at the point of change. Tune deliberately.
+++(plyer), triggered by the post-commit hook. Urgent =
+++[TEST_CAP_REACHED], [FULL_SUITE_FAILED]. Routine = clean commit.
+++
+++## 11. Auto-Archive on Merge
+++A GitHub Actions workflow (`.github/workflows/auto-archive.yml`) runs on
+++every push to `master`. It scans `ai_coding/active/` for task folders whose
+++STATUS is `PASS` or `OVERRIDE` and moves them to `ai_coding/archive/`.
+++The workflow's own commit uses `[skip ci]` so it does not loop. You never
+++move a finished task folder by hand.
+++
+++OVERRIDE folders are archived alongside PASS — the chat-only OVERRIDE
+++acceptance in §6 is the gate, and once it's committed and merged, the
+++folder no longer belongs in `active/`.
+++
+++## 12. /clear Timing
+++After the §7 commit and before starting the next feature, prompt the user:
+++"Commit done. Run /clear before starting the next feature."
+++
+++You cannot clear your own context, so this is a reminder, not an action.
+++Running /clear yourself wipes the build reasoning that the post-commit
+++context relies on, so don't prompt for it earlier in the flow.
+++
+++## 13. Archiving Deprecated Source Files
+++When a feature is removed (not just refactored), copy the original file(s)
+++to `archived/` BEFORE deleting from the source location. Add a one-line
+++header noting the deprecation date and what replaced it. This preserves
+++implementation history without bloating the running tree.
+++
+++`archived/` is for source files. `ai_coding/archive/` is for completed
+++task-pipeline folders. Do not confuse the two.
++diff --git a/README.md b/README.md
++index dfdaf2a..57607cb 100644
++--- a/README.md
+++++ b/README.md
++@@ -61,7 +61,8 @@ qa_framework/
++ ├── tools/                  # Git hook installers + versioned hooks under tools/hooks/
++ ├── docs/                   # Sphinx source + bundled HTML install guides
++ ├── .github/workflows/      # GitHub Actions CI pipelines (tests + docs deploy)
++-├── ai_coding/              # CLAUDE.md task pipeline (active/, archive/, reviewer.py)
+++├── ai_coding/              # CLAUDE.md task pipeline (active/, archive/, clear_queue.py)
+++├── archived/               # Deprecated source files (graveyard) — see CLAUDE.md §13
++ ├── .env.example            # Required env-var template; conftest validates against it
++ ├── Dockerfile              # Container definition
++ ├── Makefile                # Developer shortcuts (run `make help`)
++@@ -96,9 +97,9 @@ bash tools/install-hooks.sh
++ ```
++ 
++ The hooks check the CLAUDE.md §2-§7 rules on each commit: required task
++-files are present, STATUS is valid, commit trailers match the local
++-review, and diffs land in the right task folder. To verify the hooks
++-without running pytest or ollama, run the self-test:
+++files are present, STATUS is valid, commit trailers match the deep
+++review verdict, and diffs land in the right task folder. To verify the
+++hooks without running pytest, run the self-test:
++ 
++ ```bash
++ bash tools/hooks-selftest.sh
++diff --git a/ai_coding/active/remove-local-llm-review/PROGRESS.md b/ai_coding/active/remove-local-llm-review/PROGRESS.md
++new file mode 100644
++index 0000000..af1741d
++--- /dev/null
+++++ b/ai_coding/active/remove-local-llm-review/PROGRESS.md
++@@ -0,0 +1,17 @@
+++# PROGRESS — remove-local-llm-review
+++
+++Task: remove the local LLM (Ollama / qwen3-coder) review step. Claude performs
+++the deep review itself in §6. Add `archived/` graveyard. Add auto-archive
+++workflow on master push. Remove CAP_REACHED verdict and the quarantine bucket.
+++
+++Branch: feature/remove-local-llm-review
+++
+++## Done
+++- (in progress) §2 task folder created
+++
+++## Remaining
+++- §3 implementation across hooks, workflows, CLAUDE.md, README.md, docs
+++- §4 hooks-selftest update + run (affected tests)
+++- §5 full pytest suite (regression check)
+++- §6 self deep review
+++- §7 commit with trailers
++diff --git a/ai_coding/active/remove-local-llm-review/STATUS b/ai_coding/active/remove-local-llm-review/STATUS
++new file mode 100644
++index 0000000..7ef22e9
++--- /dev/null
+++++ b/ai_coding/active/remove-local-llm-review/STATUS
++@@ -0,0 +1 @@
+++PASS
++diff --git a/ai_coding/active/remove-local-llm-review/disagreements.log b/ai_coding/active/remove-local-llm-review/disagreements.log
++new file mode 100644
++index 0000000..e69de29
++diff --git a/ai_coding/clear_queue.py b/ai_coding/clear_queue.py
++index f244533..be3e9c3 100644
++--- a/ai_coding/clear_queue.py
+++++ b/ai_coding/clear_queue.py
++@@ -1,19 +1,27 @@
++ #!/usr/bin/env python3
++ """
++-clear_queue.py — archive reviewed clean-pass task folders.
+++clear_queue.py — manual backup utility for archiving task folders.
+++
+++Primary archival path: `.github/workflows/auto-archive.yml` sweeps
+++`ai_coding/active/` on every master push and moves task folders whose
+++STATUS is PASS or OVERRIDE into `ai_coding/archive/`. You should not need
+++this script in day-to-day use.
+++
+++This script exists as a backup for when:
+++  * The auto-archive workflow is broken or unavailable.
+++  * You want to archive a folder locally before pushing (e.g. clearing
+++    your active/ dir between sessions on a long-running branch).
+++  * You want a dry-run preview of what the workflow will move on the
+++    next master push.
++ 
++ Safety properties (do not weaken):
++   * Moves, never deletes.
++-  * Only PASS-status folders are eligible for age-based archiving.
++-  * CAP_REACHED / OVERRIDE folders are NEVER auto-moved. They are routed to
++-    quarantine/ and require an explicit, named manual clear.
++-  * A missing/unreadable STATUS file is treated as NOT clean -> left in place.
+++  * Only PASS / OVERRIDE STATUS folders are eligible.
+++  * A missing/unreadable STATUS file is treated as NOT eligible → left in place.
++ 
++ Usage:
++-  python clear_queue.py --days 7              # age-based, PASS only
++-  python clear_queue.py --task login-fix      # force-archive one PASS task now
++-  python clear_queue.py --quarantine login-fix  # explicit manual clear of a
++-                                                 # flagged folder -> archive
+++  python clear_queue.py --days 7              # age-based, eligible folders only
+++  python clear_queue.py --task login-fix      # force-archive one eligible task now
++   python clear_queue.py --days 7 --dry-run
++ """
++ from __future__ import annotations
++@@ -27,10 +35,8 @@ REPO_ROOT = Path(r"C:\Coding\qa_framework")
++ AI = REPO_ROOT / "ai_coding"
++ ACTIVE = AI / "active"
++ ARCHIVE = AI / "archive"
++-QUARANTINE = AI / "quarantine"
++ 
++-CLEAN = {"PASS"}
++-FLAGGED = {"CAP_REACHED", "OVERRIDE"}
+++ELIGIBLE = {"PASS", "OVERRIDE"}
++ 
++ 
++ def read_status(task_dir: Path) -> str | None:
++@@ -60,20 +66,6 @@ def run(args: argparse.Namespace) -> int:
++         print(f"No active dir at {ACTIVE}; nothing to do.")
++         return 0
++ 
++-    # Explicit manual clear of a flagged folder (the ONLY way flagged moves).
++-    if args.quarantine:
++-        td = ACTIVE / args.quarantine
++-        if not td.is_dir():
++-            td = QUARANTINE / args.quarantine
++-        if not td.is_dir():
++-            print(f"No such task folder: {args.quarantine}")
++-            return 1
++-        status = read_status(td)
++-        print(f"Manually clearing flagged task '{args.quarantine}' (STATUS={status}).")
++-        move(td, ARCHIVE, args.dry_run)
++-        return 0
++-
++-    targets = []
++     if args.task:
++         td = ACTIVE / args.task
++         if not td.is_dir():
++@@ -87,19 +79,11 @@ def run(args: argparse.Namespace) -> int:
++     for td in targets:
++         status = read_status(td)
++ 
++-        if status in FLAGGED:
++-            # Route to quarantine; never auto-archive.
++-            print(f"QUARANTINE: '{td.name}' STATUS={status} "
++-                  f"(left for manual --quarantine clear).")
++-            if td.parent != QUARANTINE:
++-                move(td, QUARANTINE, args.dry_run)
++-            continue
++-
++-        if status not in CLEAN:
++-            print(f"SKIP: '{td.name}' STATUS={status or 'MISSING'} (not clean).")
+++        if status not in ELIGIBLE:
+++            print(f"SKIP: '{td.name}' STATUS={status or 'MISSING'} (not eligible).")
++             continue
++ 
++-        if args.task:  # explicit single-task force (consumption-based path)
+++        if args.task:  # explicit single-task force
++             move(td, ARCHIVE, args.dry_run)
++             moved += 1
++             continue
++@@ -108,19 +92,17 @@ def run(args: argparse.Namespace) -> int:
++             move(td, ARCHIVE, args.dry_run)
++             moved += 1
++         else:
++-            print(f"KEEP: '{td.name}' clean but younger than {args.days}d.")
+++            print(f"KEEP: '{td.name}' eligible but younger than {args.days}d.")
++ 
++     print(f"Done. {moved} folder(s) archived.")
++     return 0
++ 
++ 
++ def main() -> int:
++-    ap = argparse.ArgumentParser(description="Archive reviewed clean-pass task folders.")
+++    ap = argparse.ArgumentParser(description="Backup utility: archive eligible task folders.")
++     ap.add_argument("--days", type=int, default=7,
++-                    help="Age threshold for PASS folders (default 7).")
++-    ap.add_argument("--task", help="Force-archive one PASS task now (consumption-based).")
++-    ap.add_argument("--quarantine",
++-                    help="Explicit manual clear of a flagged (CAP_REACHED/OVERRIDE) task.")
+++                    help="Age threshold for eligible folders (default 7).")
+++    ap.add_argument("--task", help="Force-archive one eligible task now.")
++     ap.add_argument("--dry-run", action="store_true")
++     return run(ap.parse_args())
++ 
++diff --git a/archived/README.md b/archived/README.md
++new file mode 100644
++index 0000000..0abba9b
++--- /dev/null
+++++ b/archived/README.md
++@@ -0,0 +1,18 @@
+++# archived/
+++
+++Graveyard for features removed from the active codebase. The original file
+++is copied here before being deleted from its source location, so the
+++implementation history is preserved without bloating the tree git ships.
+++
+++Each file carries a deprecation header at the top noting the date and the
+++replacement (if any).
+++
+++Files here are not imported, executed, or referenced anywhere in the
+++running project. If you find one being referenced, that's a bug — either
+++the file should come back, or the reference should go.
+++
+++## Distinct from `ai_coding/archive/`
+++
+++`ai_coding/archive/` holds completed task folders from the AI coding
+++pipeline (see [CLAUDE.md](../CLAUDE.md)). This folder holds deprecated
+++**source files**, not task records.
++diff --git a/ai_coding/reviewer.py b/archived/reviewer.py
++similarity index 97%
++rename from ai_coding/reviewer.py
++rename to archived/reviewer.py
++index 8617aaf..6061ce2 100644
++--- a/ai_coding/reviewer.py
+++++ b/archived/reviewer.py
++@@ -1,4 +1,6 @@
++ #!/usr/bin/env python3
+++# DEPRECATED 2026-05-21 — superseded by Claude's own §6 deep review.
+++# Preserved here for historical reference; not imported or executed anywhere.
++ """
++ reviewer.py — send a diff to the local model, get verdict, persist, notify.
++ 
++diff --git a/docs/ai_coding_workflow.html b/docs/ai_coding_workflow.html
++index 6701305..16622c0 100644
++--- a/docs/ai_coding_workflow.html
+++++ b/docs/ai_coding_workflow.html
++@@ -77,11 +77,11 @@ git checkout -b task/short-name</pre>
++     <li>
++         <strong>Tell Claude Code what you want in plain words.</strong>
++         Just describe the change. Claude follows the pipeline on its own:
++-        it creates the task folder, writes tests, runs them, asks the
++-        local AI reviewer to check the work, and makes a commit with the
++-        special tag lines at the bottom. Hooks back this up by blocking
++-        edits outside the task folder and rejecting commits missing the
++-        tag lines.
+++        it creates the task folder, writes tests, runs them, performs a
+++        deep review of its own diff, and makes a commit with the special
+++        tag lines at the bottom. Hooks back this up by blocking edits
+++        outside the task folder and rejecting commits missing the tag
+++        lines.
++     </li>
++     <li>
++         <strong>Watch progress in <code>ai_coding/active/&lt;your task&gt;/PROGRESS.md</code>.</strong>
++@@ -90,58 +90,32 @@ git checkout -b task/short-name</pre>
++         is left.
++     </li>
++     <li>
++-        <strong>Check <code>disagreements.log</code> when Claude flags an issue.</strong>
+++        <strong>Answer the deep-review prompt if Claude finds issues.</strong>
+++        After the tests pass, Claude performs its own deep review of the
+++        diff and writes the findings to
+++        <code>ai_coding/active/&lt;your task&gt;/review.md</code>. If the
+++        review verdict is <code>PASS</code>, Claude commits and moves on.
+++        If the verdict is <code>FAIL</code>, Claude stops and asks you in
+++        chat: <em>"Deep review found issues — fix, or accept as OVERRIDE?"</em>
+++        <ul>
+++            <li>Say <strong>fix</strong> and Claude addresses the findings, then re-reviews. Repeat as many times as you like; there is no cap on this loop.</li>
+++            <li>Say <strong>override</strong> and Claude rewrites the review verdict to <code>OVERRIDE</code>, logs the accepted issues to <code>disagreements.log</code>, and commits with <code>AI-Verdict: OVERRIDE</code>.</li>
+++        </ul>
+++        Either way, the commit succeeds and the CI merge gate passes.
+++    </li>
+++    <li>
+++        <strong>Check <code>disagreements.log</code> when Claude halts.</strong>
++         Open <code>ai_coding/active/&lt;your task&gt;/disagreements.log</code>.
++         You will see one of these tags:
++         <ul>
++             <li><code>[TEST_CAP_REACHED]</code>: tests still failed after 3 fix attempts. No commit was made.</li>
++             <li><code>[FULL_SUITE_FAILED]</code>: something Claude did not touch is now broken. No commit was made.</li>
++-            <li><code>[CAP_REACHED]</code>: the local reviewer kept finding problems over 2 attempts. Claude committed anyway and is flagging it for you.</li>
++-            <li><code>[OVERRIDE]</code>: Claude disagreed with the local reviewer and proceeded. Claude committed and is flagging it for you. The merge gate will block the pull request until you clear it.</li>
+++            <li><code>[OVERRIDE]</code>: you accepted Claude-flagged issues. The commit exists and is allowed through the merge gate.</li>
++         </ul>
++-        Read the log, then decide. For the two halt tags (no commit yet),
++-        you can fix the problem yourself, give Claude new instructions, or
++-        drop the task. For <code>[CAP_REACHED]</code> or
++-        <code>[OVERRIDE]</code>, the commit already exists, so you fix
++-        on top, redirect Claude, or reset the branch to undo the commit.
++-    </li>
++-    <li>
++-        <strong>Ask Claude for a deep review. This is required.</strong>
++-        In the same Claude Code chat, paste this prompt:
++-        <pre>Do a deep review of the changes on this branch. Find this branch's
++-task folder under ai_coding/active/ (use the AI-Task trailer on a
++-recent commit on this branch), read its STATUS file and
++-disagreements.log, flag any [TEST_CAP_REACHED], [FULL_SUITE_FAILED],
++-[CAP_REACHED], or [OVERRIDE] tags, and tell me the next step.</pre>
++-        Claude will read every change, every log file, and every affected
++-        source file for this branch only. Take its findings seriously,
++-        especially anything tagged <code>[CAP_REACHED]</code> or
++-        <code>[OVERRIDE]</code>.
++-    </li>
++-    <li>
++-        <strong>Move this branch's finished task folder into <code>ai_coding/archive/</code>.</strong>
++-        Ask Claude to do it with this prompt:
++-        <pre>If this branch's task folder under ai_coding/active/ has STATUS=PASS,
++-move it into ai_coding/archive/ and commit the move with the standard
++-AI tag lines used on the other commits on this branch. If the folder
++-is tagged CAP_REACHED or OVERRIDE, leave it in place. Touch only this
++-branch's folder, not any other task folders that happen to be in
++-active/. Report what was moved.</pre>
++-        Folders tagged <code>CAP_REACHED</code> or <code>OVERRIDE</code>
++-        stay in <code>active/</code> on purpose. A human handles those
++-        by hand. If you review one and decide to set it aside instead of
++-        fixing it, move it to <code>ai_coding/quarantine/</code> rather
++-        than <code>archive/</code>. Quarantine is the "looked at, not
++-        resolved" pile.
++-    </li>
++-    <li>
++-        <strong>Run <code>/clear</code> when Claude tells you to.</strong>
++-        Claude will say something like <em>"deep review complete. run
++-        /clear before starting the next feature."</em> Type
++-        <code>/clear</code> in the Claude Code chat. That wipes its
++-        memory of this work so the next task starts fresh. Do not run
++-        <code>/clear</code> earlier. That would erase the context the
++-        deep review needs.
+++        For the two halt tags (no commit yet) you can fix the problem
+++        yourself, give Claude new instructions, or drop the task. For
+++        <code>[OVERRIDE]</code> the commit already exists, so you fix on
+++        top or redirect Claude if you change your mind.
++     </li>
++     <li>
++         <strong>Push the branch and open a pull request.</strong>
++@@ -157,6 +131,22 @@ gh pr create --base master</pre>
++         Use the green merge button on GitHub. Delete the branch when
++         GitHub offers to.
++     </li>
+++    <li>
+++        <strong>Auto-archive runs on merge — nothing to do.</strong>
+++        A GitHub Actions workflow runs on every push to <code>master</code>.
+++        It scans <code>ai_coding/active/</code> for task folders with
+++        <code>STATUS</code> of <code>PASS</code> or <code>OVERRIDE</code>
+++        and moves them into <code>ai_coding/archive/</code>. The workflow's
+++        own commit uses <code>[skip ci]</code> so it does not re-trigger
+++        the test suite.
+++    </li>
+++    <li>
+++        <strong>Run <code>/clear</code> when Claude tells you to.</strong>
+++        After the commit, Claude will say something like <em>"commit done.
+++        run /clear before starting the next feature."</em> Type
+++        <code>/clear</code> in the Claude Code chat. That wipes its
+++        memory of this work so the next task starts fresh.
+++    </li>
++ </ol>
++ 
++ <h2>What you never have to do</h2>
++@@ -165,22 +155,19 @@ gh pr create --base master</pre>
++     <li>Remember to add the AI tag lines. The local commit hook will reject the commit if they are missing.</li>
++     <li>Worry about Claude editing files before the folder exists. The same hook blocks any edit outside <code>ai_coding/active/&lt;task&gt;/</code> until a task folder is in place.</li>
++     <li>Manually copy diffs into task folders. A post-commit hook does that for you.</li>
+++    <li>Manually move finished task folders to archive. The auto-archive workflow does it on master push.</li>
++ </ul>
++ 
++ <h2>Common edge cases</h2>
++ <details>
++     <summary>The CI merge gate failed on my pull request</summary>
++     <p>
++-        Two common causes. (1) A commit on the branch is missing the AI
++-        tag lines. Find the bad commit in the failed check log and either
++-        rewrite it or replace it. (2) A commit has
++-        <code>AI-Verdict: CAP_REACHED</code> or
++-        <code>AI-Verdict: OVERRIDE</code>. The gate blocks these on
++-        purpose so a human reviews them first. Decide whether the
++-        flagged concern is real. If it is, redo the work so a new commit
++-        genuinely earns <code>PASS</code>. If it is not, merge with an
++-        admin override so the audit trail of why the original commit was
++-        flagged is preserved.
+++        Usually one cause: a commit on the branch is missing the AI
+++        tag lines, or one has a malformed <code>AI-Verdict</code> (must
+++        be <code>PASS</code> or <code>OVERRIDE</code>). Find the bad
+++        commit in the failed check log and either rewrite it or replace
+++        it. <code>OVERRIDE</code> commits pass the gate automatically;
+++        no label or extra approval is required.
++     </p>
++ </details>
++ <details>
++@@ -188,9 +175,8 @@ gh pr create --base master</pre>
++     <p>
++         Use a branch name that does not start with <code>feature/</code>,
++         <code>fix/</code>, or <code>task/</code>. Do not add anything
++-        under <code>ai_coding/active</code>,
++-        <code>ai_coding/archive</code>, or
++-        <code>ai_coding/quarantine</code>. The merge gate will skip the
+++        under <code>ai_coding/active</code> or
+++        <code>ai_coding/archive</code>. The merge gate will skip the
++         check and your pull request goes through normal review. The
++         Claude Code PreToolUse hook only blocks edits that Claude makes,
++         so a human editing files directly is unaffected. To skip the
++@@ -207,5 +193,15 @@ gh pr create --base master</pre>
++         The pipeline does not keep any state outside that folder.
++     </p>
++ </details>
+++<details>
+++    <summary>Auto-archive workflow didn't move my folder</summary>
+++    <p>
+++        Check that <code>ai_coding/active/&lt;task&gt;/STATUS</code>
+++        contains <code>PASS</code> or <code>OVERRIDE</code> (and nothing
+++        else, no trailing whitespace beyond a newline). If it does and
+++        the workflow still didn't move it, run the backup utility
+++        locally: <code>python ai_coding/clear_queue.py --task &lt;task&gt;</code>.
+++    </p>
+++</details>
++ </body>
++ </html>
++diff --git a/tools/hooks-selftest.ps1 b/tools/hooks-selftest.ps1
++index dcc3e62..d14fe36 100644
++--- a/tools/hooks-selftest.ps1
+++++ b/tools/hooks-selftest.ps1
++@@ -78,7 +78,7 @@ function Write-Task {
++   $Status    | Out-File -Encoding ascii (Join-Path $dir 'STATUS')
++   $DLog      | Out-File -Encoding ascii -NoNewline (Join-Path $dir 'disagreements.log')
++   'diff body' | Out-File -Encoding ascii (Join-Path $dir 'diff.patch')
++-  ("review body`n`nVERDICT: $Review`n") | Out-File -Encoding ascii (Join-Path $dir 'review_local.md')
+++  ("review body`n`nVERDICT: $Review`n") | Out-File -Encoding ascii (Join-Path $dir 'review.md')
++   & git add $dir | Out-Null
++ }
++ 
++@@ -160,9 +160,9 @@ Write-Host "pre-commit cases:"
++ 
++   Init-Repo
++   Write-Task 'no-review' 'PASS' 'PASS'
++-  Remove-Item ai_coding/active/no-review/review_local.md
++-  & git rm -q --cached ai_coding/active/no-review/review_local.md | Out-Null
++-  Expect-PreFail '06 missing review_local.md rejects'
+++  Remove-Item ai_coding/active/no-review/review.md
+++  & git rm -q --cached ai_coding/active/no-review/review.md | Out-Null
+++  Expect-PreFail '06 missing review.md rejects'
++ 
++   Init-Repo
++   Write-Task 'status-unstaged' 'PASS' 'PASS'
++@@ -175,13 +175,37 @@ Write-Host "pre-commit cases:"
++   & git add ai_coding/active/bad-status/STATUS | Out-Null
++   Expect-PreFail "08 STATUS contents 'FOOBAR' rejects"
++ 
+++  # 8a. STATUS=CAP_REACHED (legacy verdict) rejects -- pin against resurfacing.
++   Init-Repo
++-  Write-Task 'fail-no-override' 'OVERRIDE' 'FAIL' ''
++-  Expect-PreFail '09 review FAIL without [OVERRIDE]/[CAP_REACHED] rejects'
+++  Write-Task 'legacy-cap' 'PASS' 'PASS'
+++  'CAP_REACHED' | Out-File -Encoding ascii ai_coding/active/legacy-cap/STATUS
+++  & git add ai_coding/active/legacy-cap/STATUS | Out-Null
+++  Expect-PreFail '08a STATUS=CAP_REACHED (legacy) rejects'
++ 
+++  # 9. review.md VERDICT: FAIL is an intermediate state -- always rejects.
++   Init-Repo
++-  Write-Task 'fail-with-override' 'OVERRIDE' 'FAIL' '[OVERRIDE] reason'
++-  Expect-PrePass '10 review FAIL + STATUS=OVERRIDE + [OVERRIDE] in disagreements accepts'
+++  Write-Task 'review-fail' 'OVERRIDE' 'FAIL' '[OVERRIDE] reason'
+++  Expect-PreFail '09 review.md VERDICT: FAIL rejects (intermediate state)'
+++
+++  # 10. review.md VERDICT: OVERRIDE + STATUS=OVERRIDE + [OVERRIDE] accepts.
+++  Init-Repo
+++  Write-Task 'override-clean' 'OVERRIDE' 'OVERRIDE' '[OVERRIDE] reason'
+++  Expect-PrePass '10 review OVERRIDE + STATUS=OVERRIDE + [OVERRIDE] accepts'
+++
+++  # 10a. review.md VERDICT: OVERRIDE without [OVERRIDE] in disagreements rejects.
+++  Init-Repo
+++  Write-Task 'override-no-marker' 'OVERRIDE' 'OVERRIDE' ''
+++  Expect-PreFail '10a review OVERRIDE without [OVERRIDE] marker rejects'
+++
+++  # 10b. review.md VERDICT: OVERRIDE but STATUS=PASS rejects.
+++  Init-Repo
+++  Write-Task 'override-status-mismatch' 'PASS' 'OVERRIDE' '[OVERRIDE] reason'
+++  Expect-PreFail '10b review OVERRIDE but STATUS=PASS rejects'
+++
+++  # 10c. review.md VERDICT: PASS but STATUS=OVERRIDE rejects.
+++  Init-Repo
+++  Write-Task 'pass-status-mismatch' 'OVERRIDE' 'PASS' '[OVERRIDE] reason'
+++  Expect-PreFail '10c review PASS but STATUS=OVERRIDE rejects'
++ 
++   # 11. Close-out pure rename.
++   Init-Repo
++@@ -212,7 +236,7 @@ Write-Host "pre-commit cases:"
++   # 13a. Missing VERDICT line + STATUS=PASS -> reject.
++   Init-Repo
++   Write-Task 'no-verdict-pass' 'PASS' 'PASS'
++-  $rfile = 'ai_coding/active/no-verdict-pass/review_local.md'
+++  $rfile = 'ai_coding/active/no-verdict-pass/review.md'
++   (Get-Content $rfile) | Where-Object { $_ -notmatch '^VERDICT:' } | Set-Content $rfile -Encoding ascii
++   & git add $rfile | Out-Null
++   Expect-PreFail '13a missing VERDICT + STATUS=PASS rejects'
++@@ -220,7 +244,7 @@ Write-Host "pre-commit cases:"
++   # 13b. Missing VERDICT line + STATUS=OVERRIDE + [OVERRIDE] -> accept.
++   Init-Repo
++   Write-Task 'no-verdict-override' 'OVERRIDE' 'PASS' '[OVERRIDE] reason'
++-  $rfile = 'ai_coding/active/no-verdict-override/review_local.md'
+++  $rfile = 'ai_coding/active/no-verdict-override/review.md'
++   (Get-Content $rfile) | Where-Object { $_ -notmatch '^VERDICT:' } | Set-Content $rfile -Encoding ascii
++   & git add $rfile | Out-Null
++   Expect-PrePass '13b missing VERDICT + STATUS=OVERRIDE + [OVERRIDE] accepts'
++@@ -241,10 +265,16 @@ Write-Host "pre-commit cases:"
++   Write-Msg msg.txt 'good2' 'SOMETHING'
++   Expect-MsgFail 'msg.txt' '16 malformed AI-Verdict rejects'
++ 
+++  # 16a. CAP_REACHED in AI-Verdict (legacy) rejects -- regression pin.
+++  Init-Repo
+++  Write-Task 'legacy-cap-trailer' 'PASS' 'PASS'
+++  Write-Msg msg.txt 'legacy-cap-trailer' 'CAP_REACHED'
+++  Expect-MsgFail 'msg.txt' '16a AI-Verdict: CAP_REACHED (legacy) rejects'
+++
++   Init-Repo
++   Write-Task 'mismatch' 'PASS' 'PASS'
++-  Write-Msg msg.txt 'mismatch' 'CAP_REACHED'
++-  Expect-MsgFail 'msg.txt' '17 STATUS=PASS but AI-Verdict=CAP_REACHED rejects'
+++  Write-Msg msg.txt 'mismatch' 'OVERRIDE'
+++  Expect-MsgFail 'msg.txt' '17 STATUS=PASS but AI-Verdict=OVERRIDE rejects'
++ 
++   Init-Repo
++   Write-Task 'review-fail-but-pass-trailer' 'OVERRIDE' 'FAIL' '[OVERRIDE] x'
++@@ -253,6 +283,12 @@ Write-Host "pre-commit cases:"
++   Write-Msg msg.txt 'review-fail-but-pass-trailer' 'PASS'
++   Expect-MsgFail 'msg.txt' '18 review FAIL but AI-Verdict=PASS rejects'
++ 
+++  # 18a. review.md VERDICT: OVERRIDE + AI-Verdict=OVERRIDE + STATUS=OVERRIDE accepts.
+++  Init-Repo
+++  Write-Task 'msg-override-clean' 'OVERRIDE' 'OVERRIDE' '[OVERRIDE] x'
+++  Write-Msg msg.txt 'msg-override-clean' 'OVERRIDE'
+++  Expect-MsgPass 'msg.txt' '18a OVERRIDE end-to-end accepts'
+++
++   Init-Repo
++   New-Item -ItemType Directory -Path ai_coding/active/oldtask3 -Force | Out-Null
++   'progress' | Out-File -Encoding ascii ai_coding/active/oldtask3/PROGRESS.md
++diff --git a/tools/hooks-selftest.sh b/tools/hooks-selftest.sh
++index a1ddc89..b410cef 100755
++--- a/tools/hooks-selftest.sh
+++++ b/tools/hooks-selftest.sh
++@@ -3,7 +3,7 @@
++ # against synthetic staged sets in a temp git repo. Asserts each rejection
++ # branch of pre-commit and pins the post-commit tri-branch routing fix.
++ #
++-# Standalone: does not require pytest, ollama, or any project dependency.
+++# Standalone: does not require pytest or any project dependency.
++ # Run via:  bash tools/hooks-selftest.sh
++ #
++ # Exit 0 iff every case passes. Exit 1 with a summary of failed cases.
++@@ -53,7 +53,7 @@ write_task() {
++   printf '%s\n' "$status" > "$dir/STATUS"
++   printf '%s' "$dlog" > "$dir/disagreements.log"
++   printf 'diff body\n' > "$dir/diff.patch"
++-  printf 'review body\n\nVERDICT: %s\n' "$review" > "$dir/review_local.md"
+++  printf 'review body\n\nVERDICT: %s\n' "$review" > "$dir/review.md"
++   git add "$dir"
++ }
++ 
++@@ -119,12 +119,12 @@ rm  ai_coding/active/no-diff/diff.patch
++ git rm -q --cached ai_coding/active/no-diff/diff.patch
++ expect_pre_fail "05 missing diff.patch rejects"
++ 
++-# 6. Missing review_local.md.
+++# 6. Missing review.md.
++ init_repo
++ write_task "no-review" PASS PASS ""
++-rm  ai_coding/active/no-review/review_local.md
++-git rm -q --cached ai_coding/active/no-review/review_local.md
++-expect_pre_fail "06 missing review_local.md rejects"
+++rm  ai_coding/active/no-review/review.md
+++git rm -q --cached ai_coding/active/no-review/review.md
+++expect_pre_fail "06 missing review.md rejects"
++ 
++ # 7. STATUS present on disk, not staged.
++ init_repo
++@@ -139,15 +139,37 @@ printf 'FOOBAR\n' > ai_coding/active/bad-status/STATUS
++ git add ai_coding/active/bad-status/STATUS
++ expect_pre_fail "08 STATUS contents 'FOOBAR' rejects"
++ 
++-# 9. review_local.md VERDICT: FAIL with no [OVERRIDE] in disagreements.log.
+++# 8a. STATUS=CAP_REACHED (legacy verdict) rejects — pin against resurfacing.
++ init_repo
++-write_task "fail-no-override" OVERRIDE FAIL ""
++-expect_pre_fail "09 review FAIL without [OVERRIDE]/[CAP_REACHED] rejects"
+++write_task "legacy-cap" PASS PASS ""
+++printf 'CAP_REACHED\n' > ai_coding/active/legacy-cap/STATUS
+++git add ai_coding/active/legacy-cap/STATUS
+++expect_pre_fail "08a STATUS=CAP_REACHED (legacy) rejects"
++ 
++-# 10. review_local.md VERDICT: FAIL with valid OVERRIDE override is accepted.
+++# 9. review.md VERDICT: FAIL is an intermediate state — always rejects.
++ init_repo
++-write_task "fail-with-override" OVERRIDE FAIL "[OVERRIDE] reason"
++-expect_pre_pass "10 review FAIL + STATUS=OVERRIDE + [OVERRIDE] in disagreements accepts"
+++write_task "review-fail" OVERRIDE FAIL "[OVERRIDE] reason"
+++expect_pre_fail "09 review.md VERDICT: FAIL rejects (intermediate state)"
+++
+++# 10. review.md VERDICT: OVERRIDE + STATUS=OVERRIDE + [OVERRIDE] accepts.
+++init_repo
+++write_task "override-clean" OVERRIDE OVERRIDE "[OVERRIDE] reason"
+++expect_pre_pass "10 review OVERRIDE + STATUS=OVERRIDE + [OVERRIDE] accepts"
+++
+++# 10a. review.md VERDICT: OVERRIDE without [OVERRIDE] in disagreements rejects.
+++init_repo
+++write_task "override-no-marker" OVERRIDE OVERRIDE ""
+++expect_pre_fail "10a review OVERRIDE without [OVERRIDE] marker rejects"
+++
+++# 10b. review.md VERDICT: OVERRIDE but STATUS=PASS rejects.
+++init_repo
+++write_task "override-status-mismatch" PASS OVERRIDE "[OVERRIDE] reason"
+++expect_pre_fail "10b review OVERRIDE but STATUS=PASS rejects"
+++
+++# 10c. review.md VERDICT: PASS but STATUS=OVERRIDE rejects.
+++init_repo
+++write_task "pass-status-mismatch" OVERRIDE PASS "[OVERRIDE] reason"
+++expect_pre_fail "10c review PASS but STATUS=OVERRIDE rejects"
++ 
++ # Helper: rename ai_coding/active/<task> → ai_coding/archive/<task> using
++ # OS mv + git add -A (Git for Windows' `git mv` is broken on directories;
++@@ -191,19 +213,18 @@ expect_pre_pass "13 no ai_coding paths staged accepts"
++ #      silently accept reviews that lack a parseable verdict.
++ init_repo
++ write_task "no-verdict-pass" PASS PASS ""
++-# Strip the VERDICT line out of review_local.md.
++-sed -i '/^VERDICT:/d' ai_coding/active/no-verdict-pass/review_local.md
++-git add ai_coding/active/no-verdict-pass/review_local.md
+++# Strip the VERDICT line out of review.md.
+++sed -i '/^VERDICT:/d' ai_coding/active/no-verdict-pass/review.md
+++git add ai_coding/active/no-verdict-pass/review.md
++ expect_pre_fail "13a missing VERDICT line + STATUS=PASS rejects"
++ 
++ # 13b. Missing VERDICT line + STATUS=OVERRIDE + [OVERRIDE] in disagreements.log
++-#      → accept. §6 escape hatch must survive a model that misbehaves on the
++-#      VERDICT contract. This is the regression pin that protects the OVERRIDE
++-#      path against future hook tightening.
+++#      → accept. §6 escape hatch must survive a review.md write that misfires.
+++#      Regression pin that protects the OVERRIDE path against hook tightening.
++ init_repo
++ write_task "no-verdict-override" OVERRIDE PASS "[OVERRIDE] reason"
++-sed -i '/^VERDICT:/d' ai_coding/active/no-verdict-override/review_local.md
++-git add ai_coding/active/no-verdict-override/review_local.md
+++sed -i '/^VERDICT:/d' ai_coding/active/no-verdict-override/review.md
+++git add ai_coding/active/no-verdict-override/review.md
++ expect_pre_pass "13b missing VERDICT line + STATUS=OVERRIDE + [OVERRIDE] accepts"
++ 
++ # =============================================================================
++@@ -228,13 +249,19 @@ write_task "good2" PASS PASS ""
++ write_msg msg.txt good2 SOMETHING
++ expect_msg_fail msg.txt "16 malformed AI-Verdict rejects"
++ 
++-# 17. STATUS vs AI-Verdict mismatch.
+++# 16a. CAP_REACHED in AI-Verdict trailer (legacy) rejects — regression pin.
+++init_repo
+++write_task "legacy-cap-trailer" PASS PASS ""
+++write_msg msg.txt legacy-cap-trailer CAP_REACHED
+++expect_msg_fail msg.txt "16a AI-Verdict: CAP_REACHED (legacy) rejects"
+++
+++# 17. STATUS vs AI-Verdict mismatch (STATUS=PASS, AI-Verdict=OVERRIDE).
++ init_repo
++ write_task "mismatch" PASS PASS ""
++-write_msg msg.txt mismatch CAP_REACHED
++-expect_msg_fail msg.txt "17 STATUS=PASS but AI-Verdict=CAP_REACHED rejects"
+++write_msg msg.txt mismatch OVERRIDE
+++expect_msg_fail msg.txt "17 STATUS=PASS but AI-Verdict=OVERRIDE rejects"
++ 
++-# 18. review_local.md VERDICT: FAIL but AI-Verdict=PASS (should reject).
+++# 18. review.md VERDICT: FAIL but AI-Verdict=PASS (should reject).
++ init_repo
++ write_task "review-fail-but-pass-trailer" OVERRIDE FAIL "[OVERRIDE] x"
++ # Doctor STATUS to PASS so the STATUS↔trailer check doesn't fire first.
++@@ -243,6 +270,12 @@ git add ai_coding/active/review-fail-but-pass-trailer/STATUS
++ write_msg msg.txt review-fail-but-pass-trailer PASS
++ expect_msg_fail msg.txt "18 review FAIL but AI-Verdict=PASS rejects"
++ 
+++# 18a. review.md VERDICT: OVERRIDE + AI-Verdict=OVERRIDE + STATUS=OVERRIDE accepts.
+++init_repo
+++write_task "msg-override-clean" OVERRIDE OVERRIDE "[OVERRIDE] x"
+++write_msg msg.txt msg-override-clean OVERRIDE
+++expect_msg_pass msg.txt "18a OVERRIDE end-to-end accepts"
+++
++ # 19. Close-out commit-msg shape — pure rename → exempt from consistency checks
++ #     (but still requires trailers, which we provide).
++ init_repo
++diff --git a/tools/hooks/commit-msg b/tools/hooks/commit-msg
++index 8965c16..f45fbc3 100755
++--- a/tools/hooks/commit-msg
+++++ b/tools/hooks/commit-msg
++@@ -2,16 +2,15 @@
++ # commit-msg — enforce CLAUDE.md §7 trailers AND the trailer-consistency
++ # checks that need both the commit message and the on-disk artifacts.
++ #
++-# Migrated from .git/hooks/commit-msg into version control so the rules
++-# can't drift per-clone. Hand-in-hand with tools/hooks/pre-commit, which
++-# owns the filesystem-only artifact checks (presence, staging, STATUS
++-# token validity, review_local.md ↔ disagreements.log).
+++# Hand-in-hand with tools/hooks/pre-commit, which owns the filesystem-only
+++# artifact checks (presence, staging, STATUS token validity, review.md ↔
+++# disagreements.log).
++ #
++-# This hook adds, on top of the original trailer-existence checks:
+++# This hook adds, on top of trailer-existence checks:
++ #   * If an AI-Task is named and ai_coding/active/<task>/STATUS exists,
++ #     STATUS contents MUST equal the AI-Verdict trailer value.
++-#   * If review_local.md ends with VERDICT: FAIL, AI-Verdict MUST be
++-#     OVERRIDE or CAP_REACHED (matches CLAUDE.md §6 allowed paths).
+++#   * If review.md ends with VERDICT: OVERRIDE, AI-Verdict MUST be OVERRIDE.
+++#     If review.md ends with VERDICT: PASS, AI-Verdict MUST be PASS.
++ #
++ # Constraints:
++ #   * POSIX-sh safe (Git for Windows MSYS bash).
++@@ -47,14 +46,14 @@ if [ -z "$TASK" ]; then
++ fi
++ 
++ if [ -z "$VERDICT" ]; then
++-  ERR="${ERR}  - Missing 'AI-Verdict: PASS|CAP_REACHED|OVERRIDE' trailer.
+++  ERR="${ERR}  - Missing 'AI-Verdict: PASS|OVERRIDE' trailer.
++ "
++   FAIL=1
++ else
++   case "$VERDICT" in
++-    PASS|CAP_REACHED|OVERRIDE) : ;;
+++    PASS|OVERRIDE) : ;;
++     *)
++-      ERR="${ERR}  - Malformed 'AI-Verdict: $VERDICT' (must be PASS, CAP_REACHED, or OVERRIDE).
+++      ERR="${ERR}  - Malformed 'AI-Verdict: $VERDICT' (must be PASS or OVERRIDE).
++ "
++       FAIL=1
++       ;;
++@@ -66,7 +65,7 @@ fi
++ if [ "$FAIL" -ne 0 ]; then
++   printf 'commit rejected by tools/hooks/commit-msg (CLAUDE.md §7):\n%s\n' "$ERR" >&2
++   printf 'Required trailers at the end of the commit message:\n' >&2
++-  printf '  AI-Verdict: PASS | CAP_REACHED | OVERRIDE\n' >&2
+++  printf '  AI-Verdict: PASS | OVERRIDE\n' >&2
++   printf '  AI-Task: <task>\n' >&2
++   exit 1
++ fi
++@@ -121,33 +120,38 @@ if [ -f "$STATUS_FP" ]; then
++   fi
++ fi
++ 
++-# --- 4. review_local.md VERDICT ↔ AI-Verdict consistency. --------------------
++-REVIEW_FP="$TASK_DIR/review_local.md"
+++# --- 4. review.md VERDICT ↔ AI-Verdict consistency. --------------------------
+++REVIEW_FP="$TASK_DIR/review.md"
++ if [ -f "$REVIEW_FP" ]; then
++   LAST_V=$(grep -E '^VERDICT:' "$REVIEW_FP" | tail -1 \
++            | sed 's/^VERDICT:[[:space:]]*//' | tr -d ' \t\r\n')
++   case "$LAST_V" in
++     PASS)
++       if [ "$VERDICT" != "PASS" ]; then
++-        ERR="${ERR}  - review_local.md last VERDICT: PASS but AI-Verdict='$VERDICT' (must be PASS).
+++        ERR="${ERR}  - review.md last VERDICT: PASS but AI-Verdict='$VERDICT' (must be PASS).
++ "
++         FAIL=1
++       fi
++       ;;
++-    FAIL)
++-      if [ "$VERDICT" != "OVERRIDE" ] && [ "$VERDICT" != "CAP_REACHED" ]; then
++-        ERR="${ERR}  - review_local.md last VERDICT: FAIL but AI-Verdict='$VERDICT' (must be OVERRIDE or CAP_REACHED).
+++    OVERRIDE)
+++      if [ "$VERDICT" != "OVERRIDE" ]; then
+++        ERR="${ERR}  - review.md last VERDICT: OVERRIDE but AI-Verdict='$VERDICT' (must be OVERRIDE).
++ "
++         FAIL=1
++       fi
++       ;;
+++    FAIL)
+++      # Intermediate state per CLAUDE.md §6 — never a commit-time verdict.
+++      ERR="${ERR}  - review.md ends with VERDICT: FAIL (intermediate; resolve via fix or OVERRIDE before committing).
+++"
+++      FAIL=1
+++      ;;
++     ""|*)
++-      # Missing or malformed VERDICT line. reviewer.py fail-safes to FAIL
++-      # when it can't parse, so the AI-Verdict trailer must reflect the
++-      # §6 escape path: OVERRIDE or CAP_REACHED. pre-commit independently
++-      # ensures disagreements.log carries the matching marker.
++-      if [ "$VERDICT" != "OVERRIDE" ] && [ "$VERDICT" != "CAP_REACHED" ]; then
++-        ERR="${ERR}  - review_local.md has no usable VERDICT line but AI-Verdict='$VERDICT' (must be OVERRIDE or CAP_REACHED).
+++      # Missing or malformed VERDICT line. Allow only the OVERRIDE escape
+++      # hatch (matches pre-commit). pre-commit independently ensures
+++      # disagreements.log carries the [OVERRIDE] marker.
+++      if [ "$VERDICT" != "OVERRIDE" ]; then
+++        ERR="${ERR}  - review.md has no usable VERDICT line but AI-Verdict='$VERDICT' (must be OVERRIDE).
++ "
++         FAIL=1
++       fi
++diff --git a/tools/hooks/post-commit b/tools/hooks/post-commit
++index 71410f1..2fe9e34 100755
++--- a/tools/hooks/post-commit
+++++ b/tools/hooks/post-commit
++@@ -94,9 +94,6 @@ else
++ fi
++ 
++ case "$VERDICT" in
++-  CAP_REACHED)
++-    fire_notify "Commit routed — CAP_REACHED" \
++-      "Task '$TASK' commit $SHORT needs review." 1 ;;
++   PASS|OVERRIDE|"")
++     fire_notify "Commit routed: $TASK" "$SHORT (${VERDICT:-no-verdict})" 0 ;;
++   *)
++diff --git a/tools/hooks/pre-commit b/tools/hooks/pre-commit
++index b9ed6b6..30793cc 100755
++--- a/tools/hooks/pre-commit
+++++ b/tools/hooks/pre-commit
++@@ -9,20 +9,20 @@
++ #   * pre-commit (this file) inspects the staged index and on-disk files.
++ #     It cannot read the commit message — git doesn't surface the message
++ #     at pre-commit time. So it owns the filesystem-only checks: artifact
++-#     presence + staging, STATUS token validity, review_local.md ↔
+++#     presence + staging, STATUS token validity, review.md ↔
++ #     disagreements.log consistency.
++ #   * commit-msg owns the checks that need both the message and the disk:
++ #     AI-Verdict ↔ STATUS file match, AI-Verdict consistency with
++-#     review_local.md VERDICT.
+++#     review.md VERDICT.
++ #
++ # Special case — close-out commits: a commit whose staged set is purely
++ # renames of ai_coding/active/<x>/... → ai_coding/archive/<x>/... is §11
++-# bookkeeping. The source folder already passed §2-§7 in an earlier commit.
++-# Such commits are exempted from all checks below.
+++# auto-archive bookkeeping. The source folder already passed §2-§7 in an
+++# earlier commit. Such commits are exempted from all checks below.
++ #
++ # Constraints:
++ #   * POSIX-sh safe (Git for Windows MSYS bash). No bashisms.
++-#   * Disk-only. NEVER blocks on missing python / missing ollama / network.
+++#   * Disk-only. NEVER blocks on missing python / network.
++ #   * Exit 0 to accept, non-zero to reject.
++ 
++ set -u
++@@ -105,7 +105,7 @@ is_staged() {
++ for TASK in $TASKS; do
++   DIR="ai_coding/active/$TASK"
++ 
++-  for FN in PROGRESS.md STATUS disagreements.log diff.patch review_local.md; do
+++  for FN in PROGRESS.md STATUS disagreements.log diff.patch review.md; do
++     FP="$DIR/$FN"
++     if [ ! -f "$REPO_ROOT/$FP" ]; then
++       ERR="${ERR}  - $TASK: missing $FN on disk
++@@ -125,70 +125,70 @@ for TASK in $TASKS; do
++   if [ -f "$STATUS_FP" ]; then
++     STATUS=$(tr -d ' \t\r\n' < "$STATUS_FP")
++     case "$STATUS" in
++-      PASS|CAP_REACHED|OVERRIDE) : ;;
+++      PASS|OVERRIDE) : ;;
++       *)
++-        ERR="${ERR}  - $TASK: STATUS='$STATUS' (must be PASS | CAP_REACHED | OVERRIDE)
+++        ERR="${ERR}  - $TASK: STATUS='$STATUS' (must be PASS | OVERRIDE)
++ "
++         FAIL=1
++         ;;
++     esac
++   fi
++ 
++-  REVIEW_FP="$REPO_ROOT/$DIR/review_local.md"
+++  REVIEW_FP="$REPO_ROOT/$DIR/review.md"
++   if [ -f "$REVIEW_FP" ]; then
++     LAST_V=$(grep -E '^VERDICT:' "$REVIEW_FP" | tail -1 \
++              | sed 's/^VERDICT:[[:space:]]*//' | tr -d ' \t\r\n')
++     case "$LAST_V" in
++       PASS)
++-        : ;;
++-      FAIL)
++-        DLOG="$REPO_ROOT/$DIR/disagreements.log"
++-        OV_OK=0
++-        if [ -f "$DLOG" ] && \
++-           ( grep -qF '[OVERRIDE]' "$DLOG" \
++-             || grep -qF '[CAP_REACHED]' "$DLOG" ); then
++-          OV_OK=1
+++        if [ -n "$STATUS" ] && [ "$STATUS" != "PASS" ]; then
+++          ERR="${ERR}  - $TASK: review.md VERDICT: PASS but STATUS='$STATUS' (must be PASS)
+++"
+++          FAIL=1
++         fi
++-        if [ "$OV_OK" -ne 1 ]; then
++-          ERR="${ERR}  - $TASK: review_local.md ends with VERDICT: FAIL but disagreements.log has no [OVERRIDE] or [CAP_REACHED] entry
+++        ;;
+++      OVERRIDE)
+++        DLOG="$REPO_ROOT/$DIR/disagreements.log"
+++        if [ ! -f "$DLOG" ] || ! grep -qF '[OVERRIDE]' "$DLOG"; then
+++          ERR="${ERR}  - $TASK: review.md VERDICT: OVERRIDE but disagreements.log has no [OVERRIDE] entry
++ "
++           FAIL=1
++         fi
++-        if [ -n "$STATUS" ] \
++-           && [ "$STATUS" != "OVERRIDE" ] && [ "$STATUS" != "CAP_REACHED" ]; then
++-          ERR="${ERR}  - $TASK: review_local.md VERDICT: FAIL but STATUS='$STATUS' (must be OVERRIDE or CAP_REACHED)
+++        if [ -n "$STATUS" ] && [ "$STATUS" != "OVERRIDE" ]; then
+++          ERR="${ERR}  - $TASK: review.md VERDICT: OVERRIDE but STATUS='$STATUS' (must be OVERRIDE)
++ "
++           FAIL=1
++         fi
++         ;;
+++      FAIL)
+++        # FAIL is an intermediate state per CLAUDE.md §6 — never the final
+++        # verdict in a commit. If we see it here, the §6 loop didn't finish
+++        # (no PASS via fix, no OVERRIDE via human acceptance). Reject.
+++        ERR="${ERR}  - $TASK: review.md ends with VERDICT: FAIL (intermediate state — resolve via fix or OVERRIDE before committing)
+++"
+++        FAIL=1
+++        ;;
++       ""|*)
++-        # No VERDICT line — or a malformed one — typically means the model
++-        # broke its §6 contract (reviewer.py fail-safes to FAIL when it
++-        # can't parse). The OVERRIDE / CAP_REACHED escape hatch in §6 must
++-        # still work in that case, otherwise the hook bricks recovery.
++-        # Treat as if the review is FAIL: require STATUS to be OVERRIDE or
++-        # CAP_REACHED and disagreements.log to carry the matching marker.
+++        # No VERDICT line, or a malformed one. Either Claude broke the §6
+++        # contract, or this is a corrupt/partial artifact. Reject unless
+++        # STATUS=OVERRIDE and disagreements.log has [OVERRIDE] — that
+++        # preserves the §6 escape hatch if the review.md write itself
+++        # misfires.
++         DLOG="$REPO_ROOT/$DIR/disagreements.log"
++         OV_OK=0
++-        if [ -f "$DLOG" ] && \
++-           ( grep -qF '[OVERRIDE]' "$DLOG" \
++-             || grep -qF '[CAP_REACHED]' "$DLOG" ); then
+++        if [ -f "$DLOG" ] && grep -qF '[OVERRIDE]' "$DLOG"; then
++           OV_OK=1
++         fi
++-        if [ -n "$STATUS" ] \
++-           && [ "$STATUS" != "OVERRIDE" ] && [ "$STATUS" != "CAP_REACHED" ]; then
+++        if [ -n "$STATUS" ] && [ "$STATUS" = "OVERRIDE" ] && [ "$OV_OK" = "1" ]; then
+++          : # escape hatch — accept
+++        else
++           if [ -z "$LAST_V" ]; then
++-            ERR="${ERR}  - $TASK: review_local.md has no VERDICT: line (STATUS='$STATUS')
+++            ERR="${ERR}  - $TASK: review.md has no VERDICT: line (STATUS='$STATUS')
++ "
++           else
++-            ERR="${ERR}  - $TASK: review_local.md last VERDICT='$LAST_V' (must be PASS or FAIL; STATUS='$STATUS')
+++            ERR="${ERR}  - $TASK: review.md last VERDICT='$LAST_V' (must be PASS, OVERRIDE, or — only as intermediate state — FAIL)
++ "
++           fi
++           FAIL=1
++-        elif [ "$OV_OK" -ne 1 ]; then
++-          ERR="${ERR}  - $TASK: review_local.md lacks a usable VERDICT line and disagreements.log has no [OVERRIDE]/[CAP_REACHED] entry
++-"
++-          FAIL=1
++         fi
++         ;;
++     esac
++diff --git a/tools/install-hooks.ps1 b/tools/install-hooks.ps1
++index 3504e61..2668293 100644
++--- a/tools/install-hooks.ps1
+++++ b/tools/install-hooks.ps1
++@@ -33,6 +33,6 @@ foreach ($h in @('pre-commit', 'commit-msg', 'post-commit')) {
++ & git config core.hooksPath tools/hooks
++ 
++ Write-Host 'installed: core.hooksPath = tools/hooks'
++-Write-Host '  pre-commit   : enforces CLAUDE.md sections 2-6 artifact presence'
+++Write-Host '  pre-commit   : enforces CLAUDE.md sections 2-6 artifact presence (PASS | OVERRIDE)'
++ Write-Host '  commit-msg   : enforces section 7 trailers + section 6-7 trailer consistency'
++ Write-Host '  post-commit  : routes the just-committed diff into the task folder'
++diff --git a/tools/install-hooks.sh b/tools/install-hooks.sh
++index 6932e39..e8e7dbe 100755
++--- a/tools/install-hooks.sh
+++++ b/tools/install-hooks.sh
++@@ -42,6 +42,6 @@ done
++ git config core.hooksPath tools/hooks
++ 
++ printf 'installed: core.hooksPath = tools/hooks\n'
++-printf '  pre-commit   : enforces CLAUDE.md §2-§6 artifact presence\n'
+++printf '  pre-commit   : enforces CLAUDE.md §2-§6 artifact presence (PASS | OVERRIDE)\n'
++ printf '  commit-msg   : enforces §7 trailers + §6-§7 trailer consistency\n'
++ printf '  post-commit  : routes the just-committed diff into the task folder\n'
+diff --git a/ai_coding/active/remove-local-llm-review/disagreements.log b/ai_coding/active/remove-local-llm-review/disagreements.log
+new file mode 100644
+index 0000000..e69de29
+diff --git a/ai_coding/active/remove-local-llm-review/review.md b/ai_coding/active/remove-local-llm-review/review.md
+new file mode 100644
+index 0000000..3daec26
+--- /dev/null
++++ b/ai_coding/active/remove-local-llm-review/review.md
+@@ -0,0 +1,84 @@
++# Deep review — remove-local-llm-review
++
++## Scope reviewed
++- CLAUDE.md full rewrite of §0, §2, §4, §6, §10, §11, §12, §13.
++- README.md — two text edits.
++- tools/hooks/{pre-commit, commit-msg, post-commit} rewrites for the new
++  verdict surface (PASS | OVERRIDE) and artifact rename (review.md).
++- tools/install-hooks.{ps1,sh} banner text.
++- tools/hooks-selftest.{sh,ps1} — full rewrite of cases for the new
++  verdict surface; ran the .sh version, 31/31 pass.
++- .github/workflows/tests.yml merge gate now accepts PASS | OVERRIDE,
++  drops `quarantine` from the path-pattern regex.
++- .github/workflows/auto-archive.yml — new workflow.
++- ai_coding/clear_queue.py — stripped quarantine logic, repurposed as
++  documented backup utility.
++- ai_coding/reviewer.py — deleted, copied to archived/reviewer.py.
++- ai_coding/quarantine/ — directory removed (was empty, untracked).
++- docs/ai_coding_workflow.html — full rewrite of step list and FAQs.
++- .claude/hooks/promptsubmit_status.ps1 — string change to drop the
++  reviewer.py invocation pointer.
++- archived/README.md — new file describing the graveyard convention.
++
++## Test status
++- Inner test loop: tools/hooks-selftest.sh passed 31/31 on first run, no
++  iterations needed.
++- §5 full suite: `uv run pytest` → 37 passed in 25s. No regressions.
++
++## Findings
++
++### Resolved before this verdict
++1. Auto-archive `git mv` was being called with a trailing-slash source
++   path from the glob (`"$ACTIVE_DIR"/*/`). Most git versions accept this,
++   but it's unportable. Fixed by stripping the trailing slash with bash
++   parameter expansion (`d="${raw%/}"`).
++2. Auto-archive workflow had no concurrency group. Two simultaneous
++   merges to master would both checkout, both attempt their own `git mv`
++   + `git push`, and the second would lose with non-fast-forward.
++   Fixed by adding `concurrency: { group: auto-archive-master,
++   cancel-in-progress: false }`.
++
++### Considered, not flagged
++- The auto-archive workflow uses three independent guards against
++  self-triggering: (a) GitHub's default behavior of not firing downstream
++  workflows for commits made with GITHUB_TOKEN, (b) `[skip ci]` in the
++  subject line, (c) the `if: "!contains(...'[auto-archive]')"` job-level
++  filter. Triple belt-and-suspenders is acceptable given the cost of a
++  workflow loop is high.
++- Removing `clear_queue.py`'s `--quarantine` flag is a breaking change to
++  the CLI surface. Acceptable: the quarantine concept itself is gone, so
++  the flag would have nothing to do. No CI workflow or script invokes
++  this with `--quarantine` (verified by grepping the tree).
++- The `archived/reviewer.py` copy shows up in git as a rename rather than
++  a separate add + delete. That's accurate from a content-similarity
++  standpoint and keeps the deprecation history clean.
++- `ai_coding/quarantine/` was empty and untracked. Deleted with `rmdir`,
++  no git operation needed. Its absence from the merge-gate regex
++  (tests.yml line 35) is the only enforcement change.
++- Hook `pre-commit` now checks STATUS=PASS when review.md ends with
++  `VERDICT: PASS` (previously only the OVERRIDE branch checked STATUS).
++  This closes a hole where a PASS review could ship with a non-PASS
++  STATUS. New regression-pin tests `10b` and `10c` cover both directions.
++- Hook `commit-msg` now rejects `VERDICT: FAIL` in review.md
++  unconditionally. Under the old flow FAIL was the local model's verdict
++  and was allowed if paired with OVERRIDE/CAP_REACHED escape hatches.
++  Under the new flow FAIL is intermediate-only and never ships. Test 09
++  covers this; the legacy escape-hatch test (old case 10) is replaced by
++  case 10 covering OVERRIDE end-to-end.
++- The legacy verdicts CAP_REACHED in STATUS and AI-Verdict are now
++  explicitly rejected. New tests `08a` and `16a` are regression pins
++  against a future rollback re-introducing them.
++
++## Risk areas
++
++- The auto-archive workflow has not yet been observed running in CI.
++  First run will be on merging this PR into master. If the bash logic
++  has a subtle bug, the result is a failed CI run with no folder moved
++  and the human archives manually that one time. Low blast-radius.
++- If a developer pushes directly to master outside of the PR flow with
++  a commit message containing `[auto-archive]`, the workflow won't run.
++  This is intentional self-guard; the only side-effect is a missed
++  sweep, which the next master push will pick up.
++
++## Verdict
++VERDICT: PASS
+diff --git a/ai_coding/clear_queue.py b/ai_coding/clear_queue.py
+index f244533..be3e9c3 100644
+--- a/ai_coding/clear_queue.py
++++ b/ai_coding/clear_queue.py
+@@ -1,19 +1,27 @@
+ #!/usr/bin/env python3
+ """
+-clear_queue.py — archive reviewed clean-pass task folders.
++clear_queue.py — manual backup utility for archiving task folders.
++
++Primary archival path: `.github/workflows/auto-archive.yml` sweeps
++`ai_coding/active/` on every master push and moves task folders whose
++STATUS is PASS or OVERRIDE into `ai_coding/archive/`. You should not need
++this script in day-to-day use.
++
++This script exists as a backup for when:
++  * The auto-archive workflow is broken or unavailable.
++  * You want to archive a folder locally before pushing (e.g. clearing
++    your active/ dir between sessions on a long-running branch).
++  * You want a dry-run preview of what the workflow will move on the
++    next master push.
+ 
+ Safety properties (do not weaken):
+   * Moves, never deletes.
+-  * Only PASS-status folders are eligible for age-based archiving.
+-  * CAP_REACHED / OVERRIDE folders are NEVER auto-moved. They are routed to
+-    quarantine/ and require an explicit, named manual clear.
+-  * A missing/unreadable STATUS file is treated as NOT clean -> left in place.
++  * Only PASS / OVERRIDE STATUS folders are eligible.
++  * A missing/unreadable STATUS file is treated as NOT eligible → left in place.
+ 
+ Usage:
+-  python clear_queue.py --days 7              # age-based, PASS only
+-  python clear_queue.py --task login-fix      # force-archive one PASS task now
+-  python clear_queue.py --quarantine login-fix  # explicit manual clear of a
+-                                                 # flagged folder -> archive
++  python clear_queue.py --days 7              # age-based, eligible folders only
++  python clear_queue.py --task login-fix      # force-archive one eligible task now
+   python clear_queue.py --days 7 --dry-run
+ """
+ from __future__ import annotations
+@@ -27,10 +35,8 @@ REPO_ROOT = Path(r"C:\Coding\qa_framework")
+ AI = REPO_ROOT / "ai_coding"
+ ACTIVE = AI / "active"
+ ARCHIVE = AI / "archive"
+-QUARANTINE = AI / "quarantine"
+ 
+-CLEAN = {"PASS"}
+-FLAGGED = {"CAP_REACHED", "OVERRIDE"}
++ELIGIBLE = {"PASS", "OVERRIDE"}
+ 
+ 
+ def read_status(task_dir: Path) -> str | None:
+@@ -60,20 +66,6 @@ def run(args: argparse.Namespace) -> int:
+         print(f"No active dir at {ACTIVE}; nothing to do.")
+         return 0
+ 
+-    # Explicit manual clear of a flagged folder (the ONLY way flagged moves).
+-    if args.quarantine:
+-        td = ACTIVE / args.quarantine
+-        if not td.is_dir():
+-            td = QUARANTINE / args.quarantine
+-        if not td.is_dir():
+-            print(f"No such task folder: {args.quarantine}")
+-            return 1
+-        status = read_status(td)
+-        print(f"Manually clearing flagged task '{args.quarantine}' (STATUS={status}).")
+-        move(td, ARCHIVE, args.dry_run)
+-        return 0
+-
+-    targets = []
+     if args.task:
+         td = ACTIVE / args.task
+         if not td.is_dir():
+@@ -87,19 +79,11 @@ def run(args: argparse.Namespace) -> int:
+     for td in targets:
+         status = read_status(td)
+ 
+-        if status in FLAGGED:
+-            # Route to quarantine; never auto-archive.
+-            print(f"QUARANTINE: '{td.name}' STATUS={status} "
+-                  f"(left for manual --quarantine clear).")
+-            if td.parent != QUARANTINE:
+-                move(td, QUARANTINE, args.dry_run)
+-            continue
+-
+-        if status not in CLEAN:
+-            print(f"SKIP: '{td.name}' STATUS={status or 'MISSING'} (not clean).")
++        if status not in ELIGIBLE:
++            print(f"SKIP: '{td.name}' STATUS={status or 'MISSING'} (not eligible).")
+             continue
+ 
+-        if args.task:  # explicit single-task force (consumption-based path)
++        if args.task:  # explicit single-task force
+             move(td, ARCHIVE, args.dry_run)
+             moved += 1
+             continue
+@@ -108,19 +92,17 @@ def run(args: argparse.Namespace) -> int:
+             move(td, ARCHIVE, args.dry_run)
+             moved += 1
+         else:
+-            print(f"KEEP: '{td.name}' clean but younger than {args.days}d.")
++            print(f"KEEP: '{td.name}' eligible but younger than {args.days}d.")
+ 
+     print(f"Done. {moved} folder(s) archived.")
+     return 0
+ 
+ 
+ def main() -> int:
+-    ap = argparse.ArgumentParser(description="Archive reviewed clean-pass task folders.")
++    ap = argparse.ArgumentParser(description="Backup utility: archive eligible task folders.")
+     ap.add_argument("--days", type=int, default=7,
+-                    help="Age threshold for PASS folders (default 7).")
+-    ap.add_argument("--task", help="Force-archive one PASS task now (consumption-based).")
+-    ap.add_argument("--quarantine",
+-                    help="Explicit manual clear of a flagged (CAP_REACHED/OVERRIDE) task.")
++                    help="Age threshold for eligible folders (default 7).")
++    ap.add_argument("--task", help="Force-archive one eligible task now.")
+     ap.add_argument("--dry-run", action="store_true")
+     return run(ap.parse_args())
+ 
+diff --git a/archived/README.md b/archived/README.md
+new file mode 100644
+index 0000000..0abba9b
+--- /dev/null
++++ b/archived/README.md
+@@ -0,0 +1,18 @@
++# archived/
++
++Graveyard for features removed from the active codebase. The original file
++is copied here before being deleted from its source location, so the
++implementation history is preserved without bloating the tree git ships.
++
++Each file carries a deprecation header at the top noting the date and the
++replacement (if any).
++
++Files here are not imported, executed, or referenced anywhere in the
++running project. If you find one being referenced, that's a bug — either
++the file should come back, or the reference should go.
++
++## Distinct from `ai_coding/archive/`
++
++`ai_coding/archive/` holds completed task folders from the AI coding
++pipeline (see [CLAUDE.md](../CLAUDE.md)). This folder holds deprecated
++**source files**, not task records.
+diff --git a/ai_coding/reviewer.py b/archived/reviewer.py
+similarity index 97%
+rename from ai_coding/reviewer.py
+rename to archived/reviewer.py
+index 8617aaf..6061ce2 100644
+--- a/ai_coding/reviewer.py
++++ b/archived/reviewer.py
+@@ -1,4 +1,6 @@
+ #!/usr/bin/env python3
++# DEPRECATED 2026-05-21 — superseded by Claude's own §6 deep review.
++# Preserved here for historical reference; not imported or executed anywhere.
+ """
+ reviewer.py — send a diff to the local model, get verdict, persist, notify.
+ 
+diff --git a/docs/ai_coding_workflow.html b/docs/ai_coding_workflow.html
+index 6701305..16622c0 100644
+--- a/docs/ai_coding_workflow.html
++++ b/docs/ai_coding_workflow.html
+@@ -77,11 +77,11 @@ git checkout -b task/short-name</pre>
+     <li>
+         <strong>Tell Claude Code what you want in plain words.</strong>
+         Just describe the change. Claude follows the pipeline on its own:
+-        it creates the task folder, writes tests, runs them, asks the
+-        local AI reviewer to check the work, and makes a commit with the
+-        special tag lines at the bottom. Hooks back this up by blocking
+-        edits outside the task folder and rejecting commits missing the
+-        tag lines.
++        it creates the task folder, writes tests, runs them, performs a
++        deep review of its own diff, and makes a commit with the special
++        tag lines at the bottom. Hooks back this up by blocking edits
++        outside the task folder and rejecting commits missing the tag
++        lines.
+     </li>
+     <li>
+         <strong>Watch progress in <code>ai_coding/active/&lt;your task&gt;/PROGRESS.md</code>.</strong>
+@@ -90,58 +90,32 @@ git checkout -b task/short-name</pre>
+         is left.
+     </li>
+     <li>
+-        <strong>Check <code>disagreements.log</code> when Claude flags an issue.</strong>
++        <strong>Answer the deep-review prompt if Claude finds issues.</strong>
++        After the tests pass, Claude performs its own deep review of the
++        diff and writes the findings to
++        <code>ai_coding/active/&lt;your task&gt;/review.md</code>. If the
++        review verdict is <code>PASS</code>, Claude commits and moves on.
++        If the verdict is <code>FAIL</code>, Claude stops and asks you in
++        chat: <em>"Deep review found issues — fix, or accept as OVERRIDE?"</em>
++        <ul>
++            <li>Say <strong>fix</strong> and Claude addresses the findings, then re-reviews. Repeat as many times as you like; there is no cap on this loop.</li>
++            <li>Say <strong>override</strong> and Claude rewrites the review verdict to <code>OVERRIDE</code>, logs the accepted issues to <code>disagreements.log</code>, and commits with <code>AI-Verdict: OVERRIDE</code>.</li>
++        </ul>
++        Either way, the commit succeeds and the CI merge gate passes.
++    </li>
++    <li>
++        <strong>Check <code>disagreements.log</code> when Claude halts.</strong>
+         Open <code>ai_coding/active/&lt;your task&gt;/disagreements.log</code>.
+         You will see one of these tags:
+         <ul>
+             <li><code>[TEST_CAP_REACHED]</code>: tests still failed after 3 fix attempts. No commit was made.</li>
+             <li><code>[FULL_SUITE_FAILED]</code>: something Claude did not touch is now broken. No commit was made.</li>
+-            <li><code>[CAP_REACHED]</code>: the local reviewer kept finding problems over 2 attempts. Claude committed anyway and is flagging it for you.</li>
+-            <li><code>[OVERRIDE]</code>: Claude disagreed with the local reviewer and proceeded. Claude committed and is flagging it for you. The merge gate will block the pull request until you clear it.</li>
++            <li><code>[OVERRIDE]</code>: you accepted Claude-flagged issues. The commit exists and is allowed through the merge gate.</li>
+         </ul>
+-        Read the log, then decide. For the two halt tags (no commit yet),
+-        you can fix the problem yourself, give Claude new instructions, or
+-        drop the task. For <code>[CAP_REACHED]</code> or
+-        <code>[OVERRIDE]</code>, the commit already exists, so you fix
+-        on top, redirect Claude, or reset the branch to undo the commit.
+-    </li>
+-    <li>
+-        <strong>Ask Claude for a deep review. This is required.</strong>
+-        In the same Claude Code chat, paste this prompt:
+-        <pre>Do a deep review of the changes on this branch. Find this branch's
+-task folder under ai_coding/active/ (use the AI-Task trailer on a
+-recent commit on this branch), read its STATUS file and
+-disagreements.log, flag any [TEST_CAP_REACHED], [FULL_SUITE_FAILED],
+-[CAP_REACHED], or [OVERRIDE] tags, and tell me the next step.</pre>
+-        Claude will read every change, every log file, and every affected
+-        source file for this branch only. Take its findings seriously,
+-        especially anything tagged <code>[CAP_REACHED]</code> or
+-        <code>[OVERRIDE]</code>.
+-    </li>
+-    <li>
+-        <strong>Move this branch's finished task folder into <code>ai_coding/archive/</code>.</strong>
+-        Ask Claude to do it with this prompt:
+-        <pre>If this branch's task folder under ai_coding/active/ has STATUS=PASS,
+-move it into ai_coding/archive/ and commit the move with the standard
+-AI tag lines used on the other commits on this branch. If the folder
+-is tagged CAP_REACHED or OVERRIDE, leave it in place. Touch only this
+-branch's folder, not any other task folders that happen to be in
+-active/. Report what was moved.</pre>
+-        Folders tagged <code>CAP_REACHED</code> or <code>OVERRIDE</code>
+-        stay in <code>active/</code> on purpose. A human handles those
+-        by hand. If you review one and decide to set it aside instead of
+-        fixing it, move it to <code>ai_coding/quarantine/</code> rather
+-        than <code>archive/</code>. Quarantine is the "looked at, not
+-        resolved" pile.
+-    </li>
+-    <li>
+-        <strong>Run <code>/clear</code> when Claude tells you to.</strong>
+-        Claude will say something like <em>"deep review complete. run
+-        /clear before starting the next feature."</em> Type
+-        <code>/clear</code> in the Claude Code chat. That wipes its
+-        memory of this work so the next task starts fresh. Do not run
+-        <code>/clear</code> earlier. That would erase the context the
+-        deep review needs.
++        For the two halt tags (no commit yet) you can fix the problem
++        yourself, give Claude new instructions, or drop the task. For
++        <code>[OVERRIDE]</code> the commit already exists, so you fix on
++        top or redirect Claude if you change your mind.
+     </li>
+     <li>
+         <strong>Push the branch and open a pull request.</strong>
+@@ -157,6 +131,22 @@ gh pr create --base master</pre>
+         Use the green merge button on GitHub. Delete the branch when
+         GitHub offers to.
+     </li>
++    <li>
++        <strong>Auto-archive runs on merge — nothing to do.</strong>
++        A GitHub Actions workflow runs on every push to <code>master</code>.
++        It scans <code>ai_coding/active/</code> for task folders with
++        <code>STATUS</code> of <code>PASS</code> or <code>OVERRIDE</code>
++        and moves them into <code>ai_coding/archive/</code>. The workflow's
++        own commit uses <code>[skip ci]</code> so it does not re-trigger
++        the test suite.
++    </li>
++    <li>
++        <strong>Run <code>/clear</code> when Claude tells you to.</strong>
++        After the commit, Claude will say something like <em>"commit done.
++        run /clear before starting the next feature."</em> Type
++        <code>/clear</code> in the Claude Code chat. That wipes its
++        memory of this work so the next task starts fresh.
++    </li>
+ </ol>
+ 
+ <h2>What you never have to do</h2>
+@@ -165,22 +155,19 @@ gh pr create --base master</pre>
+     <li>Remember to add the AI tag lines. The local commit hook will reject the commit if they are missing.</li>
+     <li>Worry about Claude editing files before the folder exists. The same hook blocks any edit outside <code>ai_coding/active/&lt;task&gt;/</code> until a task folder is in place.</li>
+     <li>Manually copy diffs into task folders. A post-commit hook does that for you.</li>
++    <li>Manually move finished task folders to archive. The auto-archive workflow does it on master push.</li>
+ </ul>
+ 
+ <h2>Common edge cases</h2>
+ <details>
+     <summary>The CI merge gate failed on my pull request</summary>
+     <p>
+-        Two common causes. (1) A commit on the branch is missing the AI
+-        tag lines. Find the bad commit in the failed check log and either
+-        rewrite it or replace it. (2) A commit has
+-        <code>AI-Verdict: CAP_REACHED</code> or
+-        <code>AI-Verdict: OVERRIDE</code>. The gate blocks these on
+-        purpose so a human reviews them first. Decide whether the
+-        flagged concern is real. If it is, redo the work so a new commit
+-        genuinely earns <code>PASS</code>. If it is not, merge with an
+-        admin override so the audit trail of why the original commit was
+-        flagged is preserved.
++        Usually one cause: a commit on the branch is missing the AI
++        tag lines, or one has a malformed <code>AI-Verdict</code> (must
++        be <code>PASS</code> or <code>OVERRIDE</code>). Find the bad
++        commit in the failed check log and either rewrite it or replace
++        it. <code>OVERRIDE</code> commits pass the gate automatically;
++        no label or extra approval is required.
+     </p>
+ </details>
+ <details>
+@@ -188,9 +175,8 @@ gh pr create --base master</pre>
+     <p>
+         Use a branch name that does not start with <code>feature/</code>,
+         <code>fix/</code>, or <code>task/</code>. Do not add anything
+-        under <code>ai_coding/active</code>,
+-        <code>ai_coding/archive</code>, or
+-        <code>ai_coding/quarantine</code>. The merge gate will skip the
++        under <code>ai_coding/active</code> or
++        <code>ai_coding/archive</code>. The merge gate will skip the
+         check and your pull request goes through normal review. The
+         Claude Code PreToolUse hook only blocks edits that Claude makes,
+         so a human editing files directly is unaffected. To skip the
+@@ -207,5 +193,15 @@ gh pr create --base master</pre>
+         The pipeline does not keep any state outside that folder.
+     </p>
+ </details>
++<details>
++    <summary>Auto-archive workflow didn't move my folder</summary>
++    <p>
++        Check that <code>ai_coding/active/&lt;task&gt;/STATUS</code>
++        contains <code>PASS</code> or <code>OVERRIDE</code> (and nothing
++        else, no trailing whitespace beyond a newline). If it does and
++        the workflow still didn't move it, run the backup utility
++        locally: <code>python ai_coding/clear_queue.py --task &lt;task&gt;</code>.
++    </p>
++</details>
+ </body>
+ </html>
+diff --git a/tools/hooks-selftest.ps1 b/tools/hooks-selftest.ps1
+index dcc3e62..d14fe36 100644
+--- a/tools/hooks-selftest.ps1
++++ b/tools/hooks-selftest.ps1
+@@ -78,7 +78,7 @@ function Write-Task {
+   $Status    | Out-File -Encoding ascii (Join-Path $dir 'STATUS')
+   $DLog      | Out-File -Encoding ascii -NoNewline (Join-Path $dir 'disagreements.log')
+   'diff body' | Out-File -Encoding ascii (Join-Path $dir 'diff.patch')
+-  ("review body`n`nVERDICT: $Review`n") | Out-File -Encoding ascii (Join-Path $dir 'review_local.md')
++  ("review body`n`nVERDICT: $Review`n") | Out-File -Encoding ascii (Join-Path $dir 'review.md')
+   & git add $dir | Out-Null
+ }
+ 
+@@ -160,9 +160,9 @@ Write-Host "pre-commit cases:"
+ 
+   Init-Repo
+   Write-Task 'no-review' 'PASS' 'PASS'
+-  Remove-Item ai_coding/active/no-review/review_local.md
+-  & git rm -q --cached ai_coding/active/no-review/review_local.md | Out-Null
+-  Expect-PreFail '06 missing review_local.md rejects'
++  Remove-Item ai_coding/active/no-review/review.md
++  & git rm -q --cached ai_coding/active/no-review/review.md | Out-Null
++  Expect-PreFail '06 missing review.md rejects'
+ 
+   Init-Repo
+   Write-Task 'status-unstaged' 'PASS' 'PASS'
+@@ -175,13 +175,37 @@ Write-Host "pre-commit cases:"
+   & git add ai_coding/active/bad-status/STATUS | Out-Null
+   Expect-PreFail "08 STATUS contents 'FOOBAR' rejects"
+ 
++  # 8a. STATUS=CAP_REACHED (legacy verdict) rejects -- pin against resurfacing.
+   Init-Repo
+-  Write-Task 'fail-no-override' 'OVERRIDE' 'FAIL' ''
+-  Expect-PreFail '09 review FAIL without [OVERRIDE]/[CAP_REACHED] rejects'
++  Write-Task 'legacy-cap' 'PASS' 'PASS'
++  'CAP_REACHED' | Out-File -Encoding ascii ai_coding/active/legacy-cap/STATUS
++  & git add ai_coding/active/legacy-cap/STATUS | Out-Null
++  Expect-PreFail '08a STATUS=CAP_REACHED (legacy) rejects'
+ 
++  # 9. review.md VERDICT: FAIL is an intermediate state -- always rejects.
+   Init-Repo
+-  Write-Task 'fail-with-override' 'OVERRIDE' 'FAIL' '[OVERRIDE] reason'
+-  Expect-PrePass '10 review FAIL + STATUS=OVERRIDE + [OVERRIDE] in disagreements accepts'
++  Write-Task 'review-fail' 'OVERRIDE' 'FAIL' '[OVERRIDE] reason'
++  Expect-PreFail '09 review.md VERDICT: FAIL rejects (intermediate state)'
++
++  # 10. review.md VERDICT: OVERRIDE + STATUS=OVERRIDE + [OVERRIDE] accepts.
++  Init-Repo
++  Write-Task 'override-clean' 'OVERRIDE' 'OVERRIDE' '[OVERRIDE] reason'
++  Expect-PrePass '10 review OVERRIDE + STATUS=OVERRIDE + [OVERRIDE] accepts'
++
++  # 10a. review.md VERDICT: OVERRIDE without [OVERRIDE] in disagreements rejects.
++  Init-Repo
++  Write-Task 'override-no-marker' 'OVERRIDE' 'OVERRIDE' ''
++  Expect-PreFail '10a review OVERRIDE without [OVERRIDE] marker rejects'
++
++  # 10b. review.md VERDICT: OVERRIDE but STATUS=PASS rejects.
++  Init-Repo
++  Write-Task 'override-status-mismatch' 'PASS' 'OVERRIDE' '[OVERRIDE] reason'
++  Expect-PreFail '10b review OVERRIDE but STATUS=PASS rejects'
++
++  # 10c. review.md VERDICT: PASS but STATUS=OVERRIDE rejects.
++  Init-Repo
++  Write-Task 'pass-status-mismatch' 'OVERRIDE' 'PASS' '[OVERRIDE] reason'
++  Expect-PreFail '10c review PASS but STATUS=OVERRIDE rejects'
+ 
+   # 11. Close-out pure rename.
+   Init-Repo
+@@ -212,7 +236,7 @@ Write-Host "pre-commit cases:"
+   # 13a. Missing VERDICT line + STATUS=PASS -> reject.
+   Init-Repo
+   Write-Task 'no-verdict-pass' 'PASS' 'PASS'
+-  $rfile = 'ai_coding/active/no-verdict-pass/review_local.md'
++  $rfile = 'ai_coding/active/no-verdict-pass/review.md'
+   (Get-Content $rfile) | Where-Object { $_ -notmatch '^VERDICT:' } | Set-Content $rfile -Encoding ascii
+   & git add $rfile | Out-Null
+   Expect-PreFail '13a missing VERDICT + STATUS=PASS rejects'
+@@ -220,7 +244,7 @@ Write-Host "pre-commit cases:"
+   # 13b. Missing VERDICT line + STATUS=OVERRIDE + [OVERRIDE] -> accept.
+   Init-Repo
+   Write-Task 'no-verdict-override' 'OVERRIDE' 'PASS' '[OVERRIDE] reason'
+-  $rfile = 'ai_coding/active/no-verdict-override/review_local.md'
++  $rfile = 'ai_coding/active/no-verdict-override/review.md'
+   (Get-Content $rfile) | Where-Object { $_ -notmatch '^VERDICT:' } | Set-Content $rfile -Encoding ascii
+   & git add $rfile | Out-Null
+   Expect-PrePass '13b missing VERDICT + STATUS=OVERRIDE + [OVERRIDE] accepts'
+@@ -241,10 +265,16 @@ Write-Host "pre-commit cases:"
+   Write-Msg msg.txt 'good2' 'SOMETHING'
+   Expect-MsgFail 'msg.txt' '16 malformed AI-Verdict rejects'
+ 
++  # 16a. CAP_REACHED in AI-Verdict (legacy) rejects -- regression pin.
++  Init-Repo
++  Write-Task 'legacy-cap-trailer' 'PASS' 'PASS'
++  Write-Msg msg.txt 'legacy-cap-trailer' 'CAP_REACHED'
++  Expect-MsgFail 'msg.txt' '16a AI-Verdict: CAP_REACHED (legacy) rejects'
++
+   Init-Repo
+   Write-Task 'mismatch' 'PASS' 'PASS'
+-  Write-Msg msg.txt 'mismatch' 'CAP_REACHED'
+-  Expect-MsgFail 'msg.txt' '17 STATUS=PASS but AI-Verdict=CAP_REACHED rejects'
++  Write-Msg msg.txt 'mismatch' 'OVERRIDE'
++  Expect-MsgFail 'msg.txt' '17 STATUS=PASS but AI-Verdict=OVERRIDE rejects'
+ 
+   Init-Repo
+   Write-Task 'review-fail-but-pass-trailer' 'OVERRIDE' 'FAIL' '[OVERRIDE] x'
+@@ -253,6 +283,12 @@ Write-Host "pre-commit cases:"
+   Write-Msg msg.txt 'review-fail-but-pass-trailer' 'PASS'
+   Expect-MsgFail 'msg.txt' '18 review FAIL but AI-Verdict=PASS rejects'
+ 
++  # 18a. review.md VERDICT: OVERRIDE + AI-Verdict=OVERRIDE + STATUS=OVERRIDE accepts.
++  Init-Repo
++  Write-Task 'msg-override-clean' 'OVERRIDE' 'OVERRIDE' '[OVERRIDE] x'
++  Write-Msg msg.txt 'msg-override-clean' 'OVERRIDE'
++  Expect-MsgPass 'msg.txt' '18a OVERRIDE end-to-end accepts'
++
+   Init-Repo
+   New-Item -ItemType Directory -Path ai_coding/active/oldtask3 -Force | Out-Null
+   'progress' | Out-File -Encoding ascii ai_coding/active/oldtask3/PROGRESS.md
+diff --git a/tools/hooks-selftest.sh b/tools/hooks-selftest.sh
+index a1ddc89..b410cef 100755
+--- a/tools/hooks-selftest.sh
++++ b/tools/hooks-selftest.sh
+@@ -3,7 +3,7 @@
+ # against synthetic staged sets in a temp git repo. Asserts each rejection
+ # branch of pre-commit and pins the post-commit tri-branch routing fix.
+ #
+-# Standalone: does not require pytest, ollama, or any project dependency.
++# Standalone: does not require pytest or any project dependency.
+ # Run via:  bash tools/hooks-selftest.sh
+ #
+ # Exit 0 iff every case passes. Exit 1 with a summary of failed cases.
+@@ -53,7 +53,7 @@ write_task() {
+   printf '%s\n' "$status" > "$dir/STATUS"
+   printf '%s' "$dlog" > "$dir/disagreements.log"
+   printf 'diff body\n' > "$dir/diff.patch"
+-  printf 'review body\n\nVERDICT: %s\n' "$review" > "$dir/review_local.md"
++  printf 'review body\n\nVERDICT: %s\n' "$review" > "$dir/review.md"
+   git add "$dir"
+ }
+ 
+@@ -119,12 +119,12 @@ rm  ai_coding/active/no-diff/diff.patch
+ git rm -q --cached ai_coding/active/no-diff/diff.patch
+ expect_pre_fail "05 missing diff.patch rejects"
+ 
+-# 6. Missing review_local.md.
++# 6. Missing review.md.
+ init_repo
+ write_task "no-review" PASS PASS ""
+-rm  ai_coding/active/no-review/review_local.md
+-git rm -q --cached ai_coding/active/no-review/review_local.md
+-expect_pre_fail "06 missing review_local.md rejects"
++rm  ai_coding/active/no-review/review.md
++git rm -q --cached ai_coding/active/no-review/review.md
++expect_pre_fail "06 missing review.md rejects"
+ 
+ # 7. STATUS present on disk, not staged.
+ init_repo
+@@ -139,15 +139,37 @@ printf 'FOOBAR\n' > ai_coding/active/bad-status/STATUS
+ git add ai_coding/active/bad-status/STATUS
+ expect_pre_fail "08 STATUS contents 'FOOBAR' rejects"
+ 
+-# 9. review_local.md VERDICT: FAIL with no [OVERRIDE] in disagreements.log.
++# 8a. STATUS=CAP_REACHED (legacy verdict) rejects — pin against resurfacing.
+ init_repo
+-write_task "fail-no-override" OVERRIDE FAIL ""
+-expect_pre_fail "09 review FAIL without [OVERRIDE]/[CAP_REACHED] rejects"
++write_task "legacy-cap" PASS PASS ""
++printf 'CAP_REACHED\n' > ai_coding/active/legacy-cap/STATUS
++git add ai_coding/active/legacy-cap/STATUS
++expect_pre_fail "08a STATUS=CAP_REACHED (legacy) rejects"
+ 
+-# 10. review_local.md VERDICT: FAIL with valid OVERRIDE override is accepted.
++# 9. review.md VERDICT: FAIL is an intermediate state — always rejects.
+ init_repo
+-write_task "fail-with-override" OVERRIDE FAIL "[OVERRIDE] reason"
+-expect_pre_pass "10 review FAIL + STATUS=OVERRIDE + [OVERRIDE] in disagreements accepts"
++write_task "review-fail" OVERRIDE FAIL "[OVERRIDE] reason"
++expect_pre_fail "09 review.md VERDICT: FAIL rejects (intermediate state)"
++
++# 10. review.md VERDICT: OVERRIDE + STATUS=OVERRIDE + [OVERRIDE] accepts.
++init_repo
++write_task "override-clean" OVERRIDE OVERRIDE "[OVERRIDE] reason"
++expect_pre_pass "10 review OVERRIDE + STATUS=OVERRIDE + [OVERRIDE] accepts"
++
++# 10a. review.md VERDICT: OVERRIDE without [OVERRIDE] in disagreements rejects.
++init_repo
++write_task "override-no-marker" OVERRIDE OVERRIDE ""
++expect_pre_fail "10a review OVERRIDE without [OVERRIDE] marker rejects"
++
++# 10b. review.md VERDICT: OVERRIDE but STATUS=PASS rejects.
++init_repo
++write_task "override-status-mismatch" PASS OVERRIDE "[OVERRIDE] reason"
++expect_pre_fail "10b review OVERRIDE but STATUS=PASS rejects"
++
++# 10c. review.md VERDICT: PASS but STATUS=OVERRIDE rejects.
++init_repo
++write_task "pass-status-mismatch" OVERRIDE PASS "[OVERRIDE] reason"
++expect_pre_fail "10c review PASS but STATUS=OVERRIDE rejects"
+ 
+ # Helper: rename ai_coding/active/<task> → ai_coding/archive/<task> using
+ # OS mv + git add -A (Git for Windows' `git mv` is broken on directories;
+@@ -191,19 +213,18 @@ expect_pre_pass "13 no ai_coding paths staged accepts"
+ #      silently accept reviews that lack a parseable verdict.
+ init_repo
+ write_task "no-verdict-pass" PASS PASS ""
+-# Strip the VERDICT line out of review_local.md.
+-sed -i '/^VERDICT:/d' ai_coding/active/no-verdict-pass/review_local.md
+-git add ai_coding/active/no-verdict-pass/review_local.md
++# Strip the VERDICT line out of review.md.
++sed -i '/^VERDICT:/d' ai_coding/active/no-verdict-pass/review.md
++git add ai_coding/active/no-verdict-pass/review.md
+ expect_pre_fail "13a missing VERDICT line + STATUS=PASS rejects"
+ 
+ # 13b. Missing VERDICT line + STATUS=OVERRIDE + [OVERRIDE] in disagreements.log
+-#      → accept. §6 escape hatch must survive a model that misbehaves on the
+-#      VERDICT contract. This is the regression pin that protects the OVERRIDE
+-#      path against future hook tightening.
++#      → accept. §6 escape hatch must survive a review.md write that misfires.
++#      Regression pin that protects the OVERRIDE path against hook tightening.
+ init_repo
+ write_task "no-verdict-override" OVERRIDE PASS "[OVERRIDE] reason"
+-sed -i '/^VERDICT:/d' ai_coding/active/no-verdict-override/review_local.md
+-git add ai_coding/active/no-verdict-override/review_local.md
++sed -i '/^VERDICT:/d' ai_coding/active/no-verdict-override/review.md
++git add ai_coding/active/no-verdict-override/review.md
+ expect_pre_pass "13b missing VERDICT line + STATUS=OVERRIDE + [OVERRIDE] accepts"
+ 
+ # =============================================================================
+@@ -228,13 +249,19 @@ write_task "good2" PASS PASS ""
+ write_msg msg.txt good2 SOMETHING
+ expect_msg_fail msg.txt "16 malformed AI-Verdict rejects"
+ 
+-# 17. STATUS vs AI-Verdict mismatch.
++# 16a. CAP_REACHED in AI-Verdict trailer (legacy) rejects — regression pin.
++init_repo
++write_task "legacy-cap-trailer" PASS PASS ""
++write_msg msg.txt legacy-cap-trailer CAP_REACHED
++expect_msg_fail msg.txt "16a AI-Verdict: CAP_REACHED (legacy) rejects"
++
++# 17. STATUS vs AI-Verdict mismatch (STATUS=PASS, AI-Verdict=OVERRIDE).
+ init_repo
+ write_task "mismatch" PASS PASS ""
+-write_msg msg.txt mismatch CAP_REACHED
+-expect_msg_fail msg.txt "17 STATUS=PASS but AI-Verdict=CAP_REACHED rejects"
++write_msg msg.txt mismatch OVERRIDE
++expect_msg_fail msg.txt "17 STATUS=PASS but AI-Verdict=OVERRIDE rejects"
+ 
+-# 18. review_local.md VERDICT: FAIL but AI-Verdict=PASS (should reject).
++# 18. review.md VERDICT: FAIL but AI-Verdict=PASS (should reject).
+ init_repo
+ write_task "review-fail-but-pass-trailer" OVERRIDE FAIL "[OVERRIDE] x"
+ # Doctor STATUS to PASS so the STATUS↔trailer check doesn't fire first.
+@@ -243,6 +270,12 @@ git add ai_coding/active/review-fail-but-pass-trailer/STATUS
+ write_msg msg.txt review-fail-but-pass-trailer PASS
+ expect_msg_fail msg.txt "18 review FAIL but AI-Verdict=PASS rejects"
+ 
++# 18a. review.md VERDICT: OVERRIDE + AI-Verdict=OVERRIDE + STATUS=OVERRIDE accepts.
++init_repo
++write_task "msg-override-clean" OVERRIDE OVERRIDE "[OVERRIDE] x"
++write_msg msg.txt msg-override-clean OVERRIDE
++expect_msg_pass msg.txt "18a OVERRIDE end-to-end accepts"
++
+ # 19. Close-out commit-msg shape — pure rename → exempt from consistency checks
+ #     (but still requires trailers, which we provide).
+ init_repo
+diff --git a/tools/hooks/commit-msg b/tools/hooks/commit-msg
+index 8965c16..f45fbc3 100755
+--- a/tools/hooks/commit-msg
++++ b/tools/hooks/commit-msg
+@@ -2,16 +2,15 @@
+ # commit-msg — enforce CLAUDE.md §7 trailers AND the trailer-consistency
+ # checks that need both the commit message and the on-disk artifacts.
+ #
+-# Migrated from .git/hooks/commit-msg into version control so the rules
+-# can't drift per-clone. Hand-in-hand with tools/hooks/pre-commit, which
+-# owns the filesystem-only artifact checks (presence, staging, STATUS
+-# token validity, review_local.md ↔ disagreements.log).
++# Hand-in-hand with tools/hooks/pre-commit, which owns the filesystem-only
++# artifact checks (presence, staging, STATUS token validity, review.md ↔
++# disagreements.log).
+ #
+-# This hook adds, on top of the original trailer-existence checks:
++# This hook adds, on top of trailer-existence checks:
+ #   * If an AI-Task is named and ai_coding/active/<task>/STATUS exists,
+ #     STATUS contents MUST equal the AI-Verdict trailer value.
+-#   * If review_local.md ends with VERDICT: FAIL, AI-Verdict MUST be
+-#     OVERRIDE or CAP_REACHED (matches CLAUDE.md §6 allowed paths).
++#   * If review.md ends with VERDICT: OVERRIDE, AI-Verdict MUST be OVERRIDE.
++#     If review.md ends with VERDICT: PASS, AI-Verdict MUST be PASS.
+ #
+ # Constraints:
+ #   * POSIX-sh safe (Git for Windows MSYS bash).
+@@ -47,14 +46,14 @@ if [ -z "$TASK" ]; then
+ fi
+ 
+ if [ -z "$VERDICT" ]; then
+-  ERR="${ERR}  - Missing 'AI-Verdict: PASS|CAP_REACHED|OVERRIDE' trailer.
++  ERR="${ERR}  - Missing 'AI-Verdict: PASS|OVERRIDE' trailer.
+ "
+   FAIL=1
+ else
+   case "$VERDICT" in
+-    PASS|CAP_REACHED|OVERRIDE) : ;;
++    PASS|OVERRIDE) : ;;
+     *)
+-      ERR="${ERR}  - Malformed 'AI-Verdict: $VERDICT' (must be PASS, CAP_REACHED, or OVERRIDE).
++      ERR="${ERR}  - Malformed 'AI-Verdict: $VERDICT' (must be PASS or OVERRIDE).
+ "
+       FAIL=1
+       ;;
+@@ -66,7 +65,7 @@ fi
+ if [ "$FAIL" -ne 0 ]; then
+   printf 'commit rejected by tools/hooks/commit-msg (CLAUDE.md §7):\n%s\n' "$ERR" >&2
+   printf 'Required trailers at the end of the commit message:\n' >&2
+-  printf '  AI-Verdict: PASS | CAP_REACHED | OVERRIDE\n' >&2
++  printf '  AI-Verdict: PASS | OVERRIDE\n' >&2
+   printf '  AI-Task: <task>\n' >&2
+   exit 1
+ fi
+@@ -121,33 +120,38 @@ if [ -f "$STATUS_FP" ]; then
+   fi
+ fi
+ 
+-# --- 4. review_local.md VERDICT ↔ AI-Verdict consistency. --------------------
+-REVIEW_FP="$TASK_DIR/review_local.md"
++# --- 4. review.md VERDICT ↔ AI-Verdict consistency. --------------------------
++REVIEW_FP="$TASK_DIR/review.md"
+ if [ -f "$REVIEW_FP" ]; then
+   LAST_V=$(grep -E '^VERDICT:' "$REVIEW_FP" | tail -1 \
+            | sed 's/^VERDICT:[[:space:]]*//' | tr -d ' \t\r\n')
+   case "$LAST_V" in
+     PASS)
+       if [ "$VERDICT" != "PASS" ]; then
+-        ERR="${ERR}  - review_local.md last VERDICT: PASS but AI-Verdict='$VERDICT' (must be PASS).
++        ERR="${ERR}  - review.md last VERDICT: PASS but AI-Verdict='$VERDICT' (must be PASS).
+ "
+         FAIL=1
+       fi
+       ;;
+-    FAIL)
+-      if [ "$VERDICT" != "OVERRIDE" ] && [ "$VERDICT" != "CAP_REACHED" ]; then
+-        ERR="${ERR}  - review_local.md last VERDICT: FAIL but AI-Verdict='$VERDICT' (must be OVERRIDE or CAP_REACHED).
++    OVERRIDE)
++      if [ "$VERDICT" != "OVERRIDE" ]; then
++        ERR="${ERR}  - review.md last VERDICT: OVERRIDE but AI-Verdict='$VERDICT' (must be OVERRIDE).
+ "
+         FAIL=1
+       fi
+       ;;
++    FAIL)
++      # Intermediate state per CLAUDE.md §6 — never a commit-time verdict.
++      ERR="${ERR}  - review.md ends with VERDICT: FAIL (intermediate; resolve via fix or OVERRIDE before committing).
++"
++      FAIL=1
++      ;;
+     ""|*)
+-      # Missing or malformed VERDICT line. reviewer.py fail-safes to FAIL
+-      # when it can't parse, so the AI-Verdict trailer must reflect the
+-      # §6 escape path: OVERRIDE or CAP_REACHED. pre-commit independently
+-      # ensures disagreements.log carries the matching marker.
+-      if [ "$VERDICT" != "OVERRIDE" ] && [ "$VERDICT" != "CAP_REACHED" ]; then
+-        ERR="${ERR}  - review_local.md has no usable VERDICT line but AI-Verdict='$VERDICT' (must be OVERRIDE or CAP_REACHED).
++      # Missing or malformed VERDICT line. Allow only the OVERRIDE escape
++      # hatch (matches pre-commit). pre-commit independently ensures
++      # disagreements.log carries the [OVERRIDE] marker.
++      if [ "$VERDICT" != "OVERRIDE" ]; then
++        ERR="${ERR}  - review.md has no usable VERDICT line but AI-Verdict='$VERDICT' (must be OVERRIDE).
+ "
+         FAIL=1
+       fi
+diff --git a/tools/hooks/post-commit b/tools/hooks/post-commit
+index 71410f1..2fe9e34 100755
+--- a/tools/hooks/post-commit
++++ b/tools/hooks/post-commit
+@@ -94,9 +94,6 @@ else
+ fi
+ 
+ case "$VERDICT" in
+-  CAP_REACHED)
+-    fire_notify "Commit routed — CAP_REACHED" \
+-      "Task '$TASK' commit $SHORT needs review." 1 ;;
+   PASS|OVERRIDE|"")
+     fire_notify "Commit routed: $TASK" "$SHORT (${VERDICT:-no-verdict})" 0 ;;
+   *)
+diff --git a/tools/hooks/pre-commit b/tools/hooks/pre-commit
+index b9ed6b6..30793cc 100755
+--- a/tools/hooks/pre-commit
++++ b/tools/hooks/pre-commit
+@@ -9,20 +9,20 @@
+ #   * pre-commit (this file) inspects the staged index and on-disk files.
+ #     It cannot read the commit message — git doesn't surface the message
+ #     at pre-commit time. So it owns the filesystem-only checks: artifact
+-#     presence + staging, STATUS token validity, review_local.md ↔
++#     presence + staging, STATUS token validity, review.md ↔
+ #     disagreements.log consistency.
+ #   * commit-msg owns the checks that need both the message and the disk:
+ #     AI-Verdict ↔ STATUS file match, AI-Verdict consistency with
+-#     review_local.md VERDICT.
++#     review.md VERDICT.
+ #
+ # Special case — close-out commits: a commit whose staged set is purely
+ # renames of ai_coding/active/<x>/... → ai_coding/archive/<x>/... is §11
+-# bookkeeping. The source folder already passed §2-§7 in an earlier commit.
+-# Such commits are exempted from all checks below.
++# auto-archive bookkeeping. The source folder already passed §2-§7 in an
++# earlier commit. Such commits are exempted from all checks below.
+ #
+ # Constraints:
+ #   * POSIX-sh safe (Git for Windows MSYS bash). No bashisms.
+-#   * Disk-only. NEVER blocks on missing python / missing ollama / network.
++#   * Disk-only. NEVER blocks on missing python / network.
+ #   * Exit 0 to accept, non-zero to reject.
+ 
+ set -u
+@@ -105,7 +105,7 @@ is_staged() {
+ for TASK in $TASKS; do
+   DIR="ai_coding/active/$TASK"
+ 
+-  for FN in PROGRESS.md STATUS disagreements.log diff.patch review_local.md; do
++  for FN in PROGRESS.md STATUS disagreements.log diff.patch review.md; do
+     FP="$DIR/$FN"
+     if [ ! -f "$REPO_ROOT/$FP" ]; then
+       ERR="${ERR}  - $TASK: missing $FN on disk
+@@ -125,70 +125,70 @@ for TASK in $TASKS; do
+   if [ -f "$STATUS_FP" ]; then
+     STATUS=$(tr -d ' \t\r\n' < "$STATUS_FP")
+     case "$STATUS" in
+-      PASS|CAP_REACHED|OVERRIDE) : ;;
++      PASS|OVERRIDE) : ;;
+       *)
+-        ERR="${ERR}  - $TASK: STATUS='$STATUS' (must be PASS | CAP_REACHED | OVERRIDE)
++        ERR="${ERR}  - $TASK: STATUS='$STATUS' (must be PASS | OVERRIDE)
+ "
+         FAIL=1
+         ;;
+     esac
+   fi
+ 
+-  REVIEW_FP="$REPO_ROOT/$DIR/review_local.md"
++  REVIEW_FP="$REPO_ROOT/$DIR/review.md"
+   if [ -f "$REVIEW_FP" ]; then
+     LAST_V=$(grep -E '^VERDICT:' "$REVIEW_FP" | tail -1 \
+              | sed 's/^VERDICT:[[:space:]]*//' | tr -d ' \t\r\n')
+     case "$LAST_V" in
+       PASS)
+-        : ;;
+-      FAIL)
+-        DLOG="$REPO_ROOT/$DIR/disagreements.log"
+-        OV_OK=0
+-        if [ -f "$DLOG" ] && \
+-           ( grep -qF '[OVERRIDE]' "$DLOG" \
+-             || grep -qF '[CAP_REACHED]' "$DLOG" ); then
+-          OV_OK=1
++        if [ -n "$STATUS" ] && [ "$STATUS" != "PASS" ]; then
++          ERR="${ERR}  - $TASK: review.md VERDICT: PASS but STATUS='$STATUS' (must be PASS)
++"
++          FAIL=1
+         fi
+-        if [ "$OV_OK" -ne 1 ]; then
+-          ERR="${ERR}  - $TASK: review_local.md ends with VERDICT: FAIL but disagreements.log has no [OVERRIDE] or [CAP_REACHED] entry
++        ;;
++      OVERRIDE)
++        DLOG="$REPO_ROOT/$DIR/disagreements.log"
++        if [ ! -f "$DLOG" ] || ! grep -qF '[OVERRIDE]' "$DLOG"; then
++          ERR="${ERR}  - $TASK: review.md VERDICT: OVERRIDE but disagreements.log has no [OVERRIDE] entry
+ "
+           FAIL=1
+         fi
+-        if [ -n "$STATUS" ] \
+-           && [ "$STATUS" != "OVERRIDE" ] && [ "$STATUS" != "CAP_REACHED" ]; then
+-          ERR="${ERR}  - $TASK: review_local.md VERDICT: FAIL but STATUS='$STATUS' (must be OVERRIDE or CAP_REACHED)
++        if [ -n "$STATUS" ] && [ "$STATUS" != "OVERRIDE" ]; then
++          ERR="${ERR}  - $TASK: review.md VERDICT: OVERRIDE but STATUS='$STATUS' (must be OVERRIDE)
+ "
+           FAIL=1
+         fi
+         ;;
++      FAIL)
++        # FAIL is an intermediate state per CLAUDE.md §6 — never the final
++        # verdict in a commit. If we see it here, the §6 loop didn't finish
++        # (no PASS via fix, no OVERRIDE via human acceptance). Reject.
++        ERR="${ERR}  - $TASK: review.md ends with VERDICT: FAIL (intermediate state — resolve via fix or OVERRIDE before committing)
++"
++        FAIL=1
++        ;;
+       ""|*)
+-        # No VERDICT line — or a malformed one — typically means the model
+-        # broke its §6 contract (reviewer.py fail-safes to FAIL when it
+-        # can't parse). The OVERRIDE / CAP_REACHED escape hatch in §6 must
+-        # still work in that case, otherwise the hook bricks recovery.
+-        # Treat as if the review is FAIL: require STATUS to be OVERRIDE or
+-        # CAP_REACHED and disagreements.log to carry the matching marker.
++        # No VERDICT line, or a malformed one. Either Claude broke the §6
++        # contract, or this is a corrupt/partial artifact. Reject unless
++        # STATUS=OVERRIDE and disagreements.log has [OVERRIDE] — that
++        # preserves the §6 escape hatch if the review.md write itself
++        # misfires.
+         DLOG="$REPO_ROOT/$DIR/disagreements.log"
+         OV_OK=0
+-        if [ -f "$DLOG" ] && \
+-           ( grep -qF '[OVERRIDE]' "$DLOG" \
+-             || grep -qF '[CAP_REACHED]' "$DLOG" ); then
++        if [ -f "$DLOG" ] && grep -qF '[OVERRIDE]' "$DLOG"; then
+           OV_OK=1
+         fi
+-        if [ -n "$STATUS" ] \
+-           && [ "$STATUS" != "OVERRIDE" ] && [ "$STATUS" != "CAP_REACHED" ]; then
++        if [ -n "$STATUS" ] && [ "$STATUS" = "OVERRIDE" ] && [ "$OV_OK" = "1" ]; then
++          : # escape hatch — accept
++        else
+           if [ -z "$LAST_V" ]; then
+-            ERR="${ERR}  - $TASK: review_local.md has no VERDICT: line (STATUS='$STATUS')
++            ERR="${ERR}  - $TASK: review.md has no VERDICT: line (STATUS='$STATUS')
+ "
+           else
+-            ERR="${ERR}  - $TASK: review_local.md last VERDICT='$LAST_V' (must be PASS or FAIL; STATUS='$STATUS')
++            ERR="${ERR}  - $TASK: review.md last VERDICT='$LAST_V' (must be PASS, OVERRIDE, or — only as intermediate state — FAIL)
+ "
+           fi
+           FAIL=1
+-        elif [ "$OV_OK" -ne 1 ]; then
+-          ERR="${ERR}  - $TASK: review_local.md lacks a usable VERDICT line and disagreements.log has no [OVERRIDE]/[CAP_REACHED] entry
+-"
+-          FAIL=1
+         fi
+         ;;
+     esac
+diff --git a/tools/install-hooks.ps1 b/tools/install-hooks.ps1
+index 3504e61..2668293 100644
+--- a/tools/install-hooks.ps1
++++ b/tools/install-hooks.ps1
+@@ -33,6 +33,6 @@ foreach ($h in @('pre-commit', 'commit-msg', 'post-commit')) {
+ & git config core.hooksPath tools/hooks
+ 
+ Write-Host 'installed: core.hooksPath = tools/hooks'
+-Write-Host '  pre-commit   : enforces CLAUDE.md sections 2-6 artifact presence'
++Write-Host '  pre-commit   : enforces CLAUDE.md sections 2-6 artifact presence (PASS | OVERRIDE)'
+ Write-Host '  commit-msg   : enforces section 7 trailers + section 6-7 trailer consistency'
+ Write-Host '  post-commit  : routes the just-committed diff into the task folder'
+diff --git a/tools/install-hooks.sh b/tools/install-hooks.sh
+index 6932e39..e8e7dbe 100755
+--- a/tools/install-hooks.sh
++++ b/tools/install-hooks.sh
+@@ -42,6 +42,6 @@ done
+ git config core.hooksPath tools/hooks
+ 
+ printf 'installed: core.hooksPath = tools/hooks\n'
+-printf '  pre-commit   : enforces CLAUDE.md §2-§6 artifact presence\n'
++printf '  pre-commit   : enforces CLAUDE.md §2-§6 artifact presence (PASS | OVERRIDE)\n'
+ printf '  commit-msg   : enforces §7 trailers + §6-§7 trailer consistency\n'
+ printf '  post-commit  : routes the just-committed diff into the task folder\n'

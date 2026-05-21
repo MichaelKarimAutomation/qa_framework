@@ -14,7 +14,7 @@ if ($folders.Count -eq 0) {
     $msg = 'CLAUDE.md PIPELINE STATE: no active task folder under ai_coding/active/. Per CLAUDE.md section 2, the FIRST step before any code edit (Edit/Write/MultiEdit on source files) is to create ai_coding/active/<task>/ with PROGRESS.md, disagreements.log, and STATUS. Read-only ops (Read/Grep/Glob/Bash for git status etc) are unrestricted. The PreToolUse hook will deny edits outside ai_coding/ and .claude/ until a task folder exists.'
 } else {
     $names = $folders -join ', '
-    $msg = "CLAUDE.md PIPELINE STATE: active task folder(s): $names. Continue following CLAUDE.md sections 3-9 (write/update tests, run pytest within cap, invoke ai_coding/reviewer.py, update PROGRESS.md at boundaries, commit with AI-Verdict + AI-Task trailers)."
+    $msg = "CLAUDE.md PIPELINE STATE: active task folder(s): $names. Continue following CLAUDE.md sections 3-9 (write/update tests, run pytest within cap, perform Claude's own deep review per section 6 writing review.md, update PROGRESS.md at boundaries, commit with AI-Verdict + AI-Task trailers)."
 }
 
 $out = @{

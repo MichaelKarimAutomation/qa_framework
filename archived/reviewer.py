@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# DEPRECATED 2026-05-21 — superseded by Claude's own §6 deep review.
+# Preserved here for historical reference; not imported or executed anywhere.
 """
 reviewer.py — send a diff to the local model, get verdict, persist, notify.
 

@@ -94,9 +94,6 @@ else
 fi
 
 case "$VERDICT" in
-  CAP_REACHED)
-    fire_notify "Commit routed — CAP_REACHED" \
-      "Task '$TASK' commit $SHORT needs review." 1 ;;
   PASS|OVERRIDE|"")
     fire_notify "Commit routed: $TASK" "$SHORT (${VERDICT:-no-verdict})" 0 ;;
   *)

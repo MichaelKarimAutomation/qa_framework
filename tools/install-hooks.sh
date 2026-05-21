@@ -42,6 +42,6 @@ done
 git config core.hooksPath tools/hooks
 
 printf 'installed: core.hooksPath = tools/hooks\n'
-printf '  pre-commit   : enforces CLAUDE.md §2-§6 artifact presence\n'
+printf '  pre-commit   : enforces CLAUDE.md §2-§6 artifact presence (PASS | OVERRIDE)\n'
 printf '  commit-msg   : enforces §7 trailers + §6-§7 trailer consistency\n'
 printf '  post-commit  : routes the just-committed diff into the task folder\n'

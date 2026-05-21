@@ -8,10 +8,6 @@ changing this file.
 - Repo root: C:\Coding\qa_framework
 - OS: Windows
 - Test command: `uv run pytest`
-- Local review model: `qwen3-coder:30b` via Ollama HTTP API at
-  http://localhost:11434 — NEVER the ollama CLI (VS Code PATH staleness).
-- Fallback models if 30b underperforms: `deepseek-coder-v2:16b`,
-  `qwen2.5-coder` (documented only; do not switch without user instruction).
 
 ## 1. Workflow Scope
 - One feature at a time, in one Claude Code session.
@@ -23,7 +19,7 @@ changing this file.
   There is no casual mode. Doc tweaks, folder renames, gitignore changes,
   single-line fixes, and `git mv` archive operations all trigger the
   §2-§7 pipeline — task folder, tests if applicable, §5 full-suite run,
-  §6 reviewer.py, commit with trailers. A small request is not an exemption.
+  §6 deep review, commit with trailers. A small request is not an exemption.
 
 ## 2. Task Folder (create at start of every task)
 For task `<task>`, create:
@@ -32,13 +28,18 @@ For task `<task>`, create:
       diff.patch          (final diff for the commit)
       disagreements.log   (see §6)
       PROGRESS.md         (see §9)
-      review_local.md     (local AI review output)
-      STATUS              (single token: PASS | CAP_REACHED | OVERRIDE)
+      review.md           (Claude's own deep review output)
+      STATUS              (single token: PASS | OVERRIDE)
 
 `<task>` is a short kebab-case name (e.g. `login-retry-fix`). It is the
 identity used in the AI-Task trailer and for hook routing. If a folder for a
 different task already exists in active/, that is expected and fine — folders
 are isolated; do not move or disturb another task's folder.
+
+Note: `review.md` may end with `VERDICT: FAIL` as an intermediate state
+during the §6 loop. FAIL is never a STATUS or AI-Verdict value; it only
+lives in `review.md` until the verdict becomes PASS (after a fix) or
+OVERRIDE (after human acceptance). See §6.
 
 ## 3. Implementation + Test Rule
 - Implement the requested change AND write/update tests for it.
@@ -51,12 +52,12 @@ are isolated; do not move or disturb another task's folder.
 - If still failing after 3 iterations:
   - Tag: `[TEST_CAP_REACHED]`
   - Write it to disagreements.log (§6)
-  - Set STATUS file is NOT written (no commit happens)
+  - STATUS file is NOT written (no commit happens)
   - **HALT. Do NOT commit.** Notify the user (§10). Wait for human action.
 
 ## 5. Final Full-Suite Run (once, after inner loop is green)
 - After affected tests pass, run the FULL suite exactly once: `uv run pytest`.
-- If the full suite passes → proceed to §6 local review.
+- If the full suite passes → proceed to §6 deep review.
 - If the full suite FAILS (regression in untouched code):
   - Tag: `[FULL_SUITE_FAILED]`
   - Write it to disagreements.log
@@ -64,32 +65,30 @@ are isolated; do not move or disturb another task's folder.
   - This is an objective failure, NOT a judgment call. It must never fall
     through to the review step or be overridden.
 
-## 6. Local AI Review + Judgment
+## 6. Deep Review (Claude's own, no local LLM)
 - Generate the diff, save to ai_coding/active/<task>/diff.patch.
-- Send the diff to the local model via reviewer.py (HTTP API).
-- The local model returns prose ending with `VERDICT: PASS` or
-  `VERDICT: FAIL` on the last line. Save full output to review_local.md.
-- You (Claude Code) are the JUDGE, not a blind executor:
-  - Legitimate issue → fix it, regenerate diff, re-run local review.
-    This counts toward the OUTER cap (= 2 iterations).
-  - Disagreement (model is wrong / nitpicking / not applicable) → record an
-    `[OVERRIDE]` entry in disagreements.log with your reasoning, then proceed.
-    The verdict is advisory, not binding.
-  - If the outer cap (2) is exhausted with unresolved issues:
-    - Tag: `[CAP_REACHED]`
-    - Record unresolved issues + last attempt summary in disagreements.log
-    - Proceed to commit on the working branch (this is allowed by design),
-      then notify the user with urgency.
+- Claude re-reads the diff, the touched source files, and the relevant test
+  output. The goal: find real bugs, correctness defects, security issues,
+  significant logic problems. Ignore pure style and formatting.
+- Claude writes the full review to review.md, ending with exactly one
+  line: `VERDICT: PASS` or `VERDICT: FAIL`.
+  - **PASS** → write STATUS=PASS, proceed to §7 commit.
+  - **FAIL** → show findings in chat and ask the human, in one concise
+    line: *"Deep review found issues — fix, or accept as OVERRIDE?"*
+    - *fix* → address the findings, regenerate the diff, re-run the deep
+      review. Repeat until PASS or until the human accepts OVERRIDE. There
+      is no cap on this loop — each iteration is human-gated by the chat
+      prompt, so the human controls when to stop.
+    - *override* → rewrite review.md's last line to `VERDICT: OVERRIDE`,
+      append an `[OVERRIDE]` entry to disagreements.log with the accepted
+      issues and the human's stated reasoning, write STATUS=OVERRIDE,
+      proceed to §7 commit.
 
 ### disagreements.log format
-    [YYYY-MM-DD HH:MM] [OVERRIDE] commit <sha>
-      Local model flagged: "<issue>"
-      Claude Code reasoning: "<why overridden>"
 
-    [YYYY-MM-DD HH:MM] [CAP_REACHED] commit <sha>
-      Iterations: 2
-      Unresolved issues: [list]
-      Last attempt: [summary]
+    [YYYY-MM-DD HH:MM] [OVERRIDE] commit <sha>
+      Findings: "<list of issues Claude flagged>"
+      Human reasoning: "<why accepted>"
 
     [YYYY-MM-DD HH:MM] [TEST_CAP_REACHED]   (no commit — halted)
       Failing tests: [list]
@@ -99,36 +98,34 @@ are isolated; do not move or disturb another task's folder.
       Failing tests: [list]
 
 ## 7. Commit
-Only reached when §4 passed, §5 passed, and §6 resolved (PASS) or
-[CAP_REACHED]/[OVERRIDE].
+Only reached when §4 passed, §5 passed, and §6 resolved (PASS or OVERRIDE).
 - Commit to the working branch only. NEVER main.
-- Write STATUS file with the final verdict token: PASS | CAP_REACHED | OVERRIDE
+- Write STATUS file with the final verdict token: PASS | OVERRIDE
 - The commit message MUST include both trailers, on their own lines, at the
   end of the message:
 
-      AI-Verdict: PASS | CAP_REACHED | OVERRIDE
+      AI-Verdict: PASS | OVERRIDE
       AI-Task: <task>
 
   These are load-bearing. The merge gate and the post-commit hook depend on
   them. Omitting them is a defect, not a shortcut.
 
 ## 8. Post-Commit (automatic, do not invoke manually)
-The .git/hooks/post-commit hook reads the AI-Task trailer and routes the
+The post-commit hook reads the AI-Task trailer and routes the
 committed diff into ai_coding/active/<task>/. You do not call this; it fires
 on commit. Just ensure the trailer is correct.
 
 ## 9. PROGRESS.md Checkpointing
 - Update ai_coding/active/<task>/PROGRESS.md at MEANINGFUL BOUNDARIES only:
-  (a) inner loop green, (b) post local-review judgment, (c) post-commit.
+  (a) inner loop green, (b) post deep-review judgment, (c) post-commit.
   NOT every step — per-step writes spend the very budget they protect.
 - Record: current task, branch, steps completed, steps remaining, pending
   decisions/issues.
 - Record verdicts and iteration descriptions only — e.g. `pytest 22/22 green`,
-  `reviewer PASS`, `iteration 3: <what changed>`. Do NOT write commit SHAs
+  `deep review PASS`, `iteration 3: <what changed>`. Do NOT write commit SHAs
   or `(pending)` / `(TBD)` markers that forward-reference artifacts which
   do not yet exist. The git log is the authoritative SHA record; duplicating
-  SHAs in PROGRESS.md just creates staleness (forward-reference placeholders
-  rot in place because the writer rarely circles back to fill them in).
+  SHAs in PROGRESS.md just creates staleness.
 - Honest limitation (do not overstate to the user): nothing COMMITTED is
   lost on session death; in-loop progress since the last boundary may repeat.
   The test-fix loop is the least-protected phase. Do not claim "nothing is
@@ -139,31 +136,33 @@ on commit. Just ensure the trailer is correct.
 
 ## 10. Notifications
 Routine completion and urgent halts are surfaced via desktop notification
-(plyer), triggered by reviewer.py or the post-commit hook. Urgent =
-[TEST_CAP_REACHED], [FULL_SUITE_FAILED], [CAP_REACHED]. Routine = clean commit.
+(plyer), triggered by the post-commit hook. Urgent =
+[TEST_CAP_REACHED], [FULL_SUITE_FAILED]. Routine = clean commit.
 
-## 11. Deep Review (manual, user-initiated, SAME session)
-When the user asks for a deep review:
-- Read all diffs/logs in ai_coding/active/ and the actual source files
-  (filesystem access is why review happens here, not in web UI).
-- Pay special attention to commits tagged [CAP_REACHED] / [OVERRIDE] and any
-  halted tasks.
-- After the review, archive reviewed CLEAN-PASS task folders to
-  ai_coding/archive/ (consumption-based clearing). Leave [CAP_REACHED] /
-  [OVERRIDE] folders in place — they go to quarantine, cleared manually only.
+## 11. Auto-Archive on Merge
+A GitHub Actions workflow (`.github/workflows/auto-archive.yml`) runs on
+every push to `master`. It scans `ai_coding/active/` for task folders whose
+STATUS is `PASS` or `OVERRIDE` and moves them to `ai_coding/archive/`.
+The workflow's own commit uses `[skip ci]` so it does not loop. You never
+move a finished task folder by hand.
 
-## 12. /clear Timing — DECIDED: Point B
-You cannot clear your own context. Therefore:
-- Do NOT prompt for /clear before the deep review.
-- AFTER the deep review is complete and clean-pass folders archived, and
-  BEFORE the next feature begins, explicitly prompt the user:
-  "Deep review complete. Run /clear before starting the next feature."
-Rationale (do not re-litigate): clearing before review would destroy the
-build reasoning the review depends on. Point B preserves context-aware
-review. This is settled unless the user changes this file.
+OVERRIDE folders are archived alongside PASS — the chat-only OVERRIDE
+acceptance in §6 is the gate, and once it's committed and merged, the
+folder no longer belongs in `active/`.
 
-## 13. Cap Tuning Tradeoff (read before changing §4/§6 caps)
-Inner cap 3 / outer cap 2 are tuned for token economy. Raising them shifts
-cost from "Claude Code tokens now" to "human merge-review load later" — more
-[CAP_REACHED] commits reach the merge gate, the one manual safeguard. This
-cost is invisible at the point of change. Tune deliberately.
+## 12. /clear Timing
+After the §7 commit and before starting the next feature, prompt the user:
+"Commit done. Run /clear before starting the next feature."
+
+You cannot clear your own context, so this is a reminder, not an action.
+Running /clear yourself wipes the build reasoning that the post-commit
+context relies on, so don't prompt for it earlier in the flow.
+
+## 13. Archiving Deprecated Source Files
+When a feature is removed (not just refactored), copy the original file(s)
+to `archived/` BEFORE deleting from the source location. Add a one-line
+header noting the deprecation date and what replaced it. This preserves
+implementation history without bloating the running tree.
+
+`archived/` is for source files. `ai_coding/archive/` is for completed
+task-pipeline folders. Do not confuse the two.

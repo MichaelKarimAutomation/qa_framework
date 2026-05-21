@@ -2,16 +2,15 @@
 # commit-msg — enforce CLAUDE.md §7 trailers AND the trailer-consistency
 # checks that need both the commit message and the on-disk artifacts.
 #
-# Migrated from .git/hooks/commit-msg into version control so the rules
-# can't drift per-clone. Hand-in-hand with tools/hooks/pre-commit, which
-# owns the filesystem-only artifact checks (presence, staging, STATUS
-# token validity, review_local.md ↔ disagreements.log).
+# Hand-in-hand with tools/hooks/pre-commit, which owns the filesystem-only
+# artifact checks (presence, staging, STATUS token validity, review.md ↔
+# disagreements.log).
 #
-# This hook adds, on top of the original trailer-existence checks:
+# This hook adds, on top of trailer-existence checks:
 #   * If an AI-Task is named and ai_coding/active/<task>/STATUS exists,
 #     STATUS contents MUST equal the AI-Verdict trailer value.
-#   * If review_local.md ends with VERDICT: FAIL, AI-Verdict MUST be
-#     OVERRIDE or CAP_REACHED (matches CLAUDE.md §6 allowed paths).
+#   * If review.md ends with VERDICT: OVERRIDE, AI-Verdict MUST be OVERRIDE.
+#     If review.md ends with VERDICT: PASS, AI-Verdict MUST be PASS.
 #
 # Constraints:
 #   * POSIX-sh safe (Git for Windows MSYS bash).
@@ -47,14 +46,14 @@ if [ -z "$TASK" ]; then
 fi
 
 if [ -z "$VERDICT" ]; then
-  ERR="${ERR}  - Missing 'AI-Verdict: PASS|CAP_REACHED|OVERRIDE' trailer.
+  ERR="${ERR}  - Missing 'AI-Verdict: PASS|OVERRIDE' trailer.
 "
   FAIL=1
 else
   case "$VERDICT" in
-    PASS|CAP_REACHED|OVERRIDE) : ;;
+    PASS|OVERRIDE) : ;;
     *)
-      ERR="${ERR}  - Malformed 'AI-Verdict: $VERDICT' (must be PASS, CAP_REACHED, or OVERRIDE).
+      ERR="${ERR}  - Malformed 'AI-Verdict: $VERDICT' (must be PASS or OVERRIDE).
 "
       FAIL=1
       ;;
@@ -66,7 +65,7 @@ fi
 if [ "$FAIL" -ne 0 ]; then
   printf 'commit rejected by tools/hooks/commit-msg (CLAUDE.md §7):\n%s\n' "$ERR" >&2
   printf 'Required trailers at the end of the commit message:\n' >&2
-  printf '  AI-Verdict: PASS | CAP_REACHED | OVERRIDE\n' >&2
+  printf '  AI-Verdict: PASS | OVERRIDE\n' >&2
   printf '  AI-Task: <task>\n' >&2
   exit 1
 fi
@@ -121,33 +120,38 @@ if [ -f "$STATUS_FP" ]; then
   fi
 fi
 
-# --- 4. review_local.md VERDICT ↔ AI-Verdict consistency. --------------------
-REVIEW_FP="$TASK_DIR/review_local.md"
+# --- 4. review.md VERDICT ↔ AI-Verdict consistency. --------------------------
+REVIEW_FP="$TASK_DIR/review.md"
 if [ -f "$REVIEW_FP" ]; then
   LAST_V=$(grep -E '^VERDICT:' "$REVIEW_FP" | tail -1 \
            | sed 's/^VERDICT:[[:space:]]*//' | tr -d ' \t\r\n')
   case "$LAST_V" in
     PASS)
       if [ "$VERDICT" != "PASS" ]; then
-        ERR="${ERR}  - review_local.md last VERDICT: PASS but AI-Verdict='$VERDICT' (must be PASS).
+        ERR="${ERR}  - review.md last VERDICT: PASS but AI-Verdict='$VERDICT' (must be PASS).
+"
+        FAIL=1
+      fi
+      ;;
+    OVERRIDE)
+      if [ "$VERDICT" != "OVERRIDE" ]; then
+        ERR="${ERR}  - review.md last VERDICT: OVERRIDE but AI-Verdict='$VERDICT' (must be OVERRIDE).
 "
         FAIL=1
       fi
       ;;
     FAIL)
-      if [ "$VERDICT" != "OVERRIDE" ] && [ "$VERDICT" != "CAP_REACHED" ]; then
-        ERR="${ERR}  - review_local.md last VERDICT: FAIL but AI-Verdict='$VERDICT' (must be OVERRIDE or CAP_REACHED).
+      # Intermediate state per CLAUDE.md §6 — never a commit-time verdict.
+      ERR="${ERR}  - review.md ends with VERDICT: FAIL (intermediate; resolve via fix or OVERRIDE before committing).
 "
-        FAIL=1
-      fi
+      FAIL=1
       ;;
     ""|*)
-      # Missing or malformed VERDICT line. reviewer.py fail-safes to FAIL
-      # when it can't parse, so the AI-Verdict trailer must reflect the
-      # §6 escape path: OVERRIDE or CAP_REACHED. pre-commit independently
-      # ensures disagreements.log carries the matching marker.
-      if [ "$VERDICT" != "OVERRIDE" ] && [ "$VERDICT" != "CAP_REACHED" ]; then
-        ERR="${ERR}  - review_local.md has no usable VERDICT line but AI-Verdict='$VERDICT' (must be OVERRIDE or CAP_REACHED).
+      # Missing or malformed VERDICT line. Allow only the OVERRIDE escape
+      # hatch (matches pre-commit). pre-commit independently ensures
+      # disagreements.log carries the [OVERRIDE] marker.
+      if [ "$VERDICT" != "OVERRIDE" ]; then
+        ERR="${ERR}  - review.md has no usable VERDICT line but AI-Verdict='$VERDICT' (must be OVERRIDE).
 "
         FAIL=1
       fi
