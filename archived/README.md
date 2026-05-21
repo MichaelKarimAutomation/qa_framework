@@ -8,7 +8,7 @@ Each file carries a deprecation header at the top noting the date and the
 replacement (if any).
 
 Files here are not imported, executed, or referenced anywhere in the
-running project. If you find one being referenced, that's a bug — either
+running project. If you find one being referenced, that's a bug: either
 the file should come back, or the reference should go.
 
 ## Distinct from `ai_coding/archive/`

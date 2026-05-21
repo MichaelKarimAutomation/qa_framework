@@ -50,7 +50,7 @@ function BAD([string]$name) { Write-Host "  [FAIL] $name"; $Script:Fail++; $Scri
 
 function Init-Repo {
   $scratch = Join-Path $Script:CleanupPath 'scratch'
-  # cd out before deletion — Windows locks the directory if any process has
+  # cd out before deletion. Windows locks the directory if any process has
   # its CWD inside it.
   Set-Location -LiteralPath $Script:RepoRoot
   if (Test-Path -LiteralPath $scratch) { Remove-Item -LiteralPath $scratch -Recurse -Force }
@@ -98,7 +98,7 @@ function Closeout-Rename {
 }
 
 function Run-PreCommit {
-  # Merge bash stdout+stderr and discard — we only care about exit code.
+  # Merge bash stdout+stderr and discard. We only care about exit code.
   $null = & $Bash -c "'$($HooksDir -replace '\\','/')/pre-commit'" 2>&1
   return $LASTEXITCODE
 }

@@ -96,7 +96,7 @@ git checkout -b task/short-name</pre>
         <code>ai_coding/active/&lt;your task&gt;/review.md</code>. If the
         review verdict is <code>PASS</code>, Claude commits and moves on.
         If the verdict is <code>FAIL</code>, Claude stops and asks you in
-        chat: <em>"Deep review found issues — fix, or accept as OVERRIDE?"</em>
+        chat: <em>"Deep review found issues: fix, or accept as OVERRIDE?"</em>
         <ul>
             <li>Say <strong>fix</strong> and Claude addresses the findings, then re-reviews. Repeat as many times as you like; there is no cap on this loop.</li>
             <li>Say <strong>override</strong> and Claude rewrites the review verdict to <code>OVERRIDE</code>, logs the accepted issues to <code>disagreements.log</code>, and commits with <code>AI-Verdict: OVERRIDE</code>.</li>
@@ -132,7 +132,7 @@ gh pr create --base master</pre>
         GitHub offers to.
     </li>
     <li>
-        <strong>Auto-archive runs on merge — nothing to do.</strong>
+        <strong>Auto-archive runs on merge. Nothing to do.</strong>
         A GitHub Actions workflow runs on every push to <code>master</code>.
         It scans <code>ai_coding/active/</code> for task folders with
         <code>STATUS</code> of <code>PASS</code> or <code>OVERRIDE</code>

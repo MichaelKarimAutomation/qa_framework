@@ -1,10 +1,10 @@
-# CLAUDE.md — Standing Rules for Claude Code (qa_framework)
+# CLAUDE.md: Standing Rules for Claude Code (qa_framework)
 
 This file is the operating contract for Claude Code in this repository. It
 encodes deliberate decisions. Do not deviate without the user explicitly
 changing this file.
 
-## 0. Environment (do not assume — these are fixed facts)
+## 0. Environment (do not assume; these are fixed facts)
 - Repo root: C:\Coding\qa_framework
 - OS: Windows
 - Test command: `uv run pytest`
@@ -18,8 +18,8 @@ changing this file.
 - Every code edit in this repository is feature work regardless of size.
   There is no casual mode. Doc tweaks, folder renames, gitignore changes,
   single-line fixes, and `git mv` archive operations all trigger the
-  §2-§7 pipeline — task folder, tests if applicable, §5 full-suite run,
-  §6 deep review, commit with trailers. A small request is not an exemption.
+  §2-§7 pipeline (task folder, tests if applicable, §5 full-suite run,
+  §6 deep review, commit with trailers). A small request is not an exemption.
 
 ## 2. Task Folder (create at start of every task)
 For task `<task>`, create:
@@ -28,12 +28,12 @@ For task `<task>`, create:
       diff.patch          (final diff for the commit)
       disagreements.log   (see §6)
       PROGRESS.md         (see §9)
-      review.md           (Claude's own deep review output)
+      review.md           (deep review output)
       STATUS              (single token: PASS | OVERRIDE)
 
 `<task>` is a short kebab-case name (e.g. `login-retry-fix`). It is the
 identity used in the AI-Task trailer and for hook routing. If a folder for a
-different task already exists in active/, that is expected and fine — folders
+different task already exists in active/, that is expected and fine. Folders
 are isolated; do not move or disturb another task's folder.
 
 Note: `review.md` may end with `VERDICT: FAIL` as an intermediate state
@@ -57,7 +57,7 @@ OVERRIDE (after human acceptance). See §6.
 
 ## 5. Final Full-Suite Run (once, after inner loop is green)
 - After affected tests pass, run the FULL suite exactly once: `uv run pytest`.
-- If the full suite passes → proceed to §6 deep review.
+- If the full suite passes, proceed to §6 deep review.
 - If the full suite FAILS (regression in untouched code):
   - Tag: `[FULL_SUITE_FAILED]`
   - Write it to disagreements.log
@@ -65,21 +65,21 @@ OVERRIDE (after human acceptance). See §6.
   - This is an objective failure, NOT a judgment call. It must never fall
     through to the review step or be overridden.
 
-## 6. Deep Review (Claude's own, no local LLM)
+## 6. Deep Review
 - Generate the diff, save to ai_coding/active/<task>/diff.patch.
-- Claude re-reads the diff, the touched source files, and the relevant test
+- Re-read the diff, the touched source files, and the relevant test
   output. The goal: find real bugs, correctness defects, security issues,
   significant logic problems. Ignore pure style and formatting.
-- Claude writes the full review to review.md, ending with exactly one
-  line: `VERDICT: PASS` or `VERDICT: FAIL`.
-  - **PASS** → write STATUS=PASS, proceed to §7 commit.
-  - **FAIL** → show findings in chat and ask the human, in one concise
-    line: *"Deep review found issues — fix, or accept as OVERRIDE?"*
-    - *fix* → address the findings, regenerate the diff, re-run the deep
+- Write the full review to review.md, ending with exactly one line:
+  `VERDICT: PASS` or `VERDICT: FAIL`.
+  - **PASS** writes STATUS=PASS, proceed to §7 commit.
+  - **FAIL** shows findings in chat and asks the human, in one concise
+    line: *"Deep review found issues: fix, or accept as OVERRIDE?"*
+    - *fix*: address the findings, regenerate the diff, re-run the deep
       review. Repeat until PASS or until the human accepts OVERRIDE. There
-      is no cap on this loop — each iteration is human-gated by the chat
+      is no cap on this loop; each iteration is human-gated by the chat
       prompt, so the human controls when to stop.
-    - *override* → rewrite review.md's last line to `VERDICT: OVERRIDE`,
+    - *override*: rewrite review.md's last line to `VERDICT: OVERRIDE`,
       append an `[OVERRIDE]` entry to disagreements.log with the accepted
       issues and the human's stated reasoning, write STATUS=OVERRIDE,
       proceed to §7 commit.
@@ -90,11 +90,11 @@ OVERRIDE (after human acceptance). See §6.
       Findings: "<list of issues Claude flagged>"
       Human reasoning: "<why accepted>"
 
-    [YYYY-MM-DD HH:MM] [TEST_CAP_REACHED]   (no commit — halted)
+    [YYYY-MM-DD HH:MM] [TEST_CAP_REACHED]   (no commit, halted)
       Failing tests: [list]
       Attempts: 3
 
-    [YYYY-MM-DD HH:MM] [FULL_SUITE_FAILED]   (no commit — halted)
+    [YYYY-MM-DD HH:MM] [FULL_SUITE_FAILED]   (no commit, halted)
       Failing tests: [list]
 
 ## 7. Commit
@@ -118,11 +118,11 @@ on commit. Just ensure the trailer is correct.
 ## 9. PROGRESS.md Checkpointing
 - Update ai_coding/active/<task>/PROGRESS.md at MEANINGFUL BOUNDARIES only:
   (a) inner loop green, (b) post deep-review judgment, (c) post-commit.
-  NOT every step — per-step writes spend the very budget they protect.
+  NOT every step. Per-step writes spend the very budget they protect.
 - Record: current task, branch, steps completed, steps remaining, pending
   decisions/issues.
-- Record verdicts and iteration descriptions only — e.g. `pytest 22/22 green`,
-  `deep review PASS`, `iteration 3: <what changed>`. Do NOT write commit SHAs
+- Record verdicts and iteration descriptions only (e.g. `pytest 22/22 green`,
+  `deep review PASS`, `iteration 3: <what changed>`). Do NOT write commit SHAs
   or `(pending)` / `(TBD)` markers that forward-reference artifacts which
   do not yet exist. The git log is the authoritative SHA record; duplicating
   SHAs in PROGRESS.md just creates staleness.
@@ -131,7 +131,7 @@ on commit. Just ensure the trailer is correct.
   The test-fix loop is the least-protected phase. Do not claim "nothing is
   lost."
 - Claude Pro usage is NOT programmatically readable. Do not attempt to query
-  remaining usage or build a usage meter — it is impossible. PROGRESS.md is
+  remaining usage or build a usage meter; it is impossible. PROGRESS.md is
   the recovery substitute, nothing more.
 
 ## 10. Notifications
@@ -146,7 +146,7 @@ STATUS is `PASS` or `OVERRIDE` and moves them to `ai_coding/archive/`.
 The workflow's own commit uses `[skip ci]` so it does not loop. You never
 move a finished task folder by hand.
 
-OVERRIDE folders are archived alongside PASS — the chat-only OVERRIDE
+OVERRIDE folders are archived alongside PASS. The chat-only OVERRIDE
 acceptance in §6 is the gate, and once it's committed and merged, the
 folder no longer belongs in `active/`.
 

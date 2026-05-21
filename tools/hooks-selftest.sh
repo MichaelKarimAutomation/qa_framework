@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# hooks-selftest.sh — exercise tools/hooks/{pre-commit,commit-msg,post-commit}
+# hooks-selftest.sh: exercise tools/hooks/{pre-commit,commit-msg,post-commit}
 # against synthetic staged sets in a temp git repo. Asserts each rejection
 # branch of pre-commit and pins the post-commit tri-branch routing fix.
 #
@@ -86,7 +86,7 @@ expect_msg_fail() {
 # =============================================================================
 printf 'pre-commit cases:\n'
 
-# 1. Golden path — all artifacts present, staged, internally consistent.
+# 1. Golden path: all artifacts present, staged, internally consistent.
 init_repo
 write_task "ok-task" PASS PASS ""
 expect_pre_pass "01 golden path accepts"
@@ -139,14 +139,14 @@ printf 'FOOBAR\n' > ai_coding/active/bad-status/STATUS
 git add ai_coding/active/bad-status/STATUS
 expect_pre_fail "08 STATUS contents 'FOOBAR' rejects"
 
-# 8a. STATUS=CAP_REACHED (legacy verdict) rejects — pin against resurfacing.
+# 8a. STATUS=CAP_REACHED (legacy verdict) rejects: pin against resurfacing.
 init_repo
 write_task "legacy-cap" PASS PASS ""
 printf 'CAP_REACHED\n' > ai_coding/active/legacy-cap/STATUS
 git add ai_coding/active/legacy-cap/STATUS
 expect_pre_fail "08a STATUS=CAP_REACHED (legacy) rejects"
 
-# 9. review.md VERDICT: FAIL is an intermediate state — always rejects.
+# 9. review.md VERDICT: FAIL is an intermediate state, always rejects.
 init_repo
 write_task "review-fail" OVERRIDE FAIL "[OVERRIDE] reason"
 expect_pre_fail "09 review.md VERDICT: FAIL rejects (intermediate state)"
@@ -249,7 +249,7 @@ write_task "good2" PASS PASS ""
 write_msg msg.txt good2 SOMETHING
 expect_msg_fail msg.txt "16 malformed AI-Verdict rejects"
 
-# 16a. CAP_REACHED in AI-Verdict trailer (legacy) rejects — regression pin.
+# 16a. CAP_REACHED in AI-Verdict trailer (legacy) rejects: regression pin.
 init_repo
 write_task "legacy-cap-trailer" PASS PASS ""
 write_msg msg.txt legacy-cap-trailer CAP_REACHED
@@ -276,7 +276,7 @@ write_task "msg-override-clean" OVERRIDE OVERRIDE "[OVERRIDE] x"
 write_msg msg.txt msg-override-clean OVERRIDE
 expect_msg_pass msg.txt "18a OVERRIDE end-to-end accepts"
 
-# 19. Close-out commit-msg shape — pure rename → exempt from consistency checks
+# 19. Close-out commit-msg shape: pure rename, exempt from consistency checks
 #     (but still requires trailers, which we provide).
 init_repo
 mkdir -p ai_coding/active/oldtask3
@@ -284,19 +284,19 @@ printf 'progress\n' > ai_coding/active/oldtask3/PROGRESS.md
 git add ai_coding/active/oldtask3
 git commit -q --no-verify -m "set up oldtask3"
 closeout_rename oldtask3
-# Close-out task name in trailer differs from the archived task — fine, since
+# Close-out task name in trailer differs from the archived task: fine, since
 # the consistency checks against ai_coding/active/oldtask3/STATUS are skipped.
 write_msg msg.txt archive-oldtask3 PASS
 expect_msg_pass msg.txt "19 close-out commit-msg accepts with bare trailers"
 
 # =============================================================================
-# POST-COMMIT TEST CASES — the heart of fix B.
+# POST-COMMIT TEST CASES: the heart of fix B.
 # =============================================================================
 printf 'post-commit cases:\n'
 
 # 20. Archive-only routing: archive/<task>/ exists, active/<task>/ does not.
 #     A subsequent commit with AI-Task: <task> must NOT recreate an active
-#     stub — diff must land in archive/<task>/.
+#     stub: diff must land in archive/<task>/.
 init_repo
 mkdir -p ai_coding/archive/already-archived
 printf 'old\n' > ai_coding/archive/already-archived/PROGRESS.md

@@ -5,7 +5,7 @@ name: Auto-Archive Task Folders
 # workflow's own commit carries [skip ci] so it does not re-trigger itself
 # or the test suite.
 #
-# Skipped when the head commit message contains [auto-archive] — that's
+# Skipped when the head commit message contains [auto-archive]: that's
 # how we prevent the workflow from acting on its own previous commit if
 # GitHub ever delivers an out-of-band event.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# pre-commit — enforce CLAUDE.md §2-§6 task-folder artifacts on every commit.
+# pre-commit: enforce CLAUDE.md §2-§6 task-folder artifacts on every commit.
 #
 # Why this exists: CLAUDE.md is prose, not enforcement. commit-msg only
 # guards §7 trailers. Nothing prevented commits that skipped §2 artifact
@@ -7,16 +7,16 @@
 #
 # Hook split (deliberate):
 #   * pre-commit (this file) inspects the staged index and on-disk files.
-#     It cannot read the commit message — git doesn't surface the message
-#     at pre-commit time. So it owns the filesystem-only checks: artifact
-#     presence + staging, STATUS token validity, review.md ↔
+#     It cannot read the commit message (git doesn't surface the message
+#     at pre-commit time), so it owns the filesystem-only checks: artifact
+#     presence + staging, STATUS token validity, review.md vs
 #     disagreements.log consistency.
 #   * commit-msg owns the checks that need both the message and the disk:
-#     AI-Verdict ↔ STATUS file match, AI-Verdict consistency with
+#     AI-Verdict vs STATUS file match, AI-Verdict consistency with
 #     review.md VERDICT.
 #
-# Special case — close-out commits: a commit whose staged set is purely
-# renames of ai_coding/active/<x>/... → ai_coding/archive/<x>/... is §11
+# Special case (close-out commits): a commit whose staged set is purely
+# renames of ai_coding/active/<x>/... to ai_coding/archive/<x>/... is §11
 # auto-archive bookkeeping. The source folder already passed §2-§7 in an
 # earlier commit. Such commits are exempted from all checks below.
 #
@@ -160,17 +160,17 @@ for TASK in $TASKS; do
         fi
         ;;
       FAIL)
-        # FAIL is an intermediate state per CLAUDE.md §6 — never the final
+        # FAIL is an intermediate state per CLAUDE.md §6: never the final
         # verdict in a commit. If we see it here, the §6 loop didn't finish
         # (no PASS via fix, no OVERRIDE via human acceptance). Reject.
-        ERR="${ERR}  - $TASK: review.md ends with VERDICT: FAIL (intermediate state — resolve via fix or OVERRIDE before committing)
+        ERR="${ERR}  - $TASK: review.md ends with VERDICT: FAIL (intermediate state; resolve via fix or OVERRIDE before committing)
 "
         FAIL=1
         ;;
       ""|*)
         # No VERDICT line, or a malformed one. Either Claude broke the §6
         # contract, or this is a corrupt/partial artifact. Reject unless
-        # STATUS=OVERRIDE and disagreements.log has [OVERRIDE] — that
+        # STATUS=OVERRIDE and disagreements.log has [OVERRIDE], which
         # preserves the §6 escape hatch if the review.md write itself
         # misfires.
         DLOG="$REPO_ROOT/$DIR/disagreements.log"
@@ -179,13 +179,13 @@ for TASK in $TASKS; do
           OV_OK=1
         fi
         if [ -n "$STATUS" ] && [ "$STATUS" = "OVERRIDE" ] && [ "$OV_OK" = "1" ]; then
-          : # escape hatch — accept
+          : # escape hatch, accept
         else
           if [ -z "$LAST_V" ]; then
             ERR="${ERR}  - $TASK: review.md has no VERDICT: line (STATUS='$STATUS')
 "
           else
-            ERR="${ERR}  - $TASK: review.md last VERDICT='$LAST_V' (must be PASS, OVERRIDE, or — only as intermediate state — FAIL)
+            ERR="${ERR}  - $TASK: review.md last VERDICT='$LAST_V' (must be PASS, OVERRIDE, or, only as intermediate state, FAIL)
 "
           fi
           FAIL=1

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-clear_queue.py — manual backup utility for archiving task folders.
+clear_queue.py: manual backup utility for archiving task folders.
 
 Primary archival path: `.github/workflows/auto-archive.yml` sweeps
 `ai_coding/active/` on every master push and moves task folders whose

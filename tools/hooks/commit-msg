@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
-# commit-msg — enforce CLAUDE.md §7 trailers AND the trailer-consistency
+# commit-msg: enforce CLAUDE.md §7 trailers AND the trailer-consistency
 # checks that need both the commit message and the on-disk artifacts.
 #
 # Hand-in-hand with tools/hooks/pre-commit, which owns the filesystem-only
-# artifact checks (presence, staging, STATUS token validity, review.md ↔
+# artifact checks (presence, staging, STATUS token validity, review.md vs
 # disagreements.log).
 #
 # This hook adds, on top of trailer-existence checks:
@@ -14,7 +14,7 @@
 #
 # Constraints:
 #   * POSIX-sh safe (Git for Windows MSYS bash).
-#   * Skip only on the git-supplied source indicator (merge) — never on
+#   * Skip only on the git-supplied source indicator (merge), never on
 #     branch name. Exit 0 to accept, non-zero to reject.
 
 set -u
@@ -60,7 +60,7 @@ else
   esac
 fi
 
-# Hard-stop here if §7 trailers are missing — downstream consistency checks
+# Hard-stop here if §7 trailers are missing: downstream consistency checks
 # would just produce noise.
 if [ "$FAIL" -ne 0 ]; then
   printf 'commit rejected by tools/hooks/commit-msg (CLAUDE.md §7):\n%s\n' "$ERR" >&2
@@ -141,7 +141,7 @@ if [ -f "$REVIEW_FP" ]; then
       fi
       ;;
     FAIL)
-      # Intermediate state per CLAUDE.md §6 — never a commit-time verdict.
+      # Intermediate state per CLAUDE.md §6: never a commit-time verdict.
       ERR="${ERR}  - review.md ends with VERDICT: FAIL (intermediate; resolve via fix or OVERRIDE before committing).
 "
       FAIL=1
