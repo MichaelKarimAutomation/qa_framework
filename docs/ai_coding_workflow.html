@@ -77,11 +77,11 @@ git checkout -b task/short-name</pre>
     <li>
         <strong>Tell Claude Code what you want in plain words.</strong>
         Just describe the change. Claude follows the pipeline on its own:
-        it creates the task folder, writes tests, runs them, asks the
-        local AI reviewer to check the work, and makes a commit with the
-        special tag lines at the bottom. Hooks back this up by blocking
-        edits outside the task folder and rejecting commits missing the
-        tag lines.
+        it creates the task folder, writes tests, runs them, performs a
+        deep review of its own diff, and makes a commit with the special
+        tag lines at the bottom. Hooks back this up by blocking edits
+        outside the task folder and rejecting commits missing the tag
+        lines.
     </li>
     <li>
         <strong>Watch progress in <code>ai_coding/active/&lt;your task&gt;/PROGRESS.md</code>.</strong>
@@ -90,58 +90,32 @@ git checkout -b task/short-name</pre>
         is left.
     </li>
     <li>
-        <strong>Check <code>disagreements.log</code> when Claude flags an issue.</strong>
+        <strong>Answer the deep-review prompt if Claude finds issues.</strong>
+        After the tests pass, Claude performs its own deep review of the
+        diff and writes the findings to
+        <code>ai_coding/active/&lt;your task&gt;/review.md</code>. If the
+        review verdict is <code>PASS</code>, Claude commits and moves on.
+        If the verdict is <code>FAIL</code>, Claude stops and asks you in
+        chat: <em>"Deep review found issues: fix, or accept as OVERRIDE?"</em>
+        <ul>
+            <li>Say <strong>fix</strong> and Claude addresses the findings, then re-reviews. Repeat as many times as you like; there is no cap on this loop.</li>
+            <li>Say <strong>override</strong> and Claude rewrites the review verdict to <code>OVERRIDE</code>, logs the accepted issues to <code>disagreements.log</code>, and commits with <code>AI-Verdict: OVERRIDE</code>.</li>
+        </ul>
+        Either way, the commit succeeds and the CI merge gate passes.
+    </li>
+    <li>
+        <strong>Check <code>disagreements.log</code> when Claude halts.</strong>
         Open <code>ai_coding/active/&lt;your task&gt;/disagreements.log</code>.
         You will see one of these tags:
         <ul>
             <li><code>[TEST_CAP_REACHED]</code>: tests still failed after 3 fix attempts. No commit was made.</li>
             <li><code>[FULL_SUITE_FAILED]</code>: something Claude did not touch is now broken. No commit was made.</li>
-            <li><code>[CAP_REACHED]</code>: the local reviewer kept finding problems over 2 attempts. Claude committed anyway and is flagging it for you.</li>
-            <li><code>[OVERRIDE]</code>: Claude disagreed with the local reviewer and proceeded. Claude committed and is flagging it for you. The merge gate will block the pull request until you clear it.</li>
+            <li><code>[OVERRIDE]</code>: you accepted Claude-flagged issues. The commit exists and is allowed through the merge gate.</li>
         </ul>
-        Read the log, then decide. For the two halt tags (no commit yet),
-        you can fix the problem yourself, give Claude new instructions, or
-        drop the task. For <code>[CAP_REACHED]</code> or
-        <code>[OVERRIDE]</code>, the commit already exists, so you fix
-        on top, redirect Claude, or reset the branch to undo the commit.
-    </li>
-    <li>
-        <strong>Ask Claude for a deep review. This is required.</strong>
-        In the same Claude Code chat, paste this prompt:
-        <pre>Do a deep review of the changes on this branch. Find this branch's
-task folder under ai_coding/active/ (use the AI-Task trailer on a
-recent commit on this branch), read its STATUS file and
-disagreements.log, flag any [TEST_CAP_REACHED], [FULL_SUITE_FAILED],
-[CAP_REACHED], or [OVERRIDE] tags, and tell me the next step.</pre>
-        Claude will read every change, every log file, and every affected
-        source file for this branch only. Take its findings seriously,
-        especially anything tagged <code>[CAP_REACHED]</code> or
-        <code>[OVERRIDE]</code>.
-    </li>
-    <li>
-        <strong>Move this branch's finished task folder into <code>ai_coding/archive/</code>.</strong>
-        Ask Claude to do it with this prompt:
-        <pre>If this branch's task folder under ai_coding/active/ has STATUS=PASS,
-move it into ai_coding/archive/ and commit the move with the standard
-AI tag lines used on the other commits on this branch. If the folder
-is tagged CAP_REACHED or OVERRIDE, leave it in place. Touch only this
-branch's folder, not any other task folders that happen to be in
-active/. Report what was moved.</pre>
-        Folders tagged <code>CAP_REACHED</code> or <code>OVERRIDE</code>
-        stay in <code>active/</code> on purpose. A human handles those
-        by hand. If you review one and decide to set it aside instead of
-        fixing it, move it to <code>ai_coding/quarantine/</code> rather
-        than <code>archive/</code>. Quarantine is the "looked at, not
-        resolved" pile.
-    </li>
-    <li>
-        <strong>Run <code>/clear</code> when Claude tells you to.</strong>
-        Claude will say something like <em>"deep review complete. run
-        /clear before starting the next feature."</em> Type
-        <code>/clear</code> in the Claude Code chat. That wipes its
-        memory of this work so the next task starts fresh. Do not run
-        <code>/clear</code> earlier. That would erase the context the
-        deep review needs.
+        For the two halt tags (no commit yet) you can fix the problem
+        yourself, give Claude new instructions, or drop the task. For
+        <code>[OVERRIDE]</code> the commit already exists, so you fix on
+        top or redirect Claude if you change your mind.
     </li>
     <li>
         <strong>Push the branch and open a pull request.</strong>
@@ -157,6 +131,22 @@ gh pr create --base master</pre>
         Use the green merge button on GitHub. Delete the branch when
         GitHub offers to.
     </li>
+    <li>
+        <strong>Auto-archive runs on merge. Nothing to do.</strong>
+        A GitHub Actions workflow runs on every push to <code>master</code>.
+        It scans <code>ai_coding/active/</code> for task folders with
+        <code>STATUS</code> of <code>PASS</code> or <code>OVERRIDE</code>
+        and moves them into <code>ai_coding/archive/</code>. The workflow's
+        own commit uses <code>[skip ci]</code> so it does not re-trigger
+        the test suite.
+    </li>
+    <li>
+        <strong>Run <code>/clear</code> when Claude tells you to.</strong>
+        After the commit, Claude will say something like <em>"commit done.
+        run /clear before starting the next feature."</em> Type
+        <code>/clear</code> in the Claude Code chat. That wipes its
+        memory of this work so the next task starts fresh.
+    </li>
 </ol>
 
 <h2>What you never have to do</h2>
@@ -165,22 +155,19 @@ gh pr create --base master</pre>
     <li>Remember to add the AI tag lines. The local commit hook will reject the commit if they are missing.</li>
     <li>Worry about Claude editing files before the folder exists. The same hook blocks any edit outside <code>ai_coding/active/&lt;task&gt;/</code> until a task folder is in place.</li>
     <li>Manually copy diffs into task folders. A post-commit hook does that for you.</li>
+    <li>Manually move finished task folders to archive. The auto-archive workflow does it on master push.</li>
 </ul>
 
 <h2>Common edge cases</h2>
 <details>
     <summary>The CI merge gate failed on my pull request</summary>
     <p>
-        Two common causes. (1) A commit on the branch is missing the AI
-        tag lines. Find the bad commit in the failed check log and either
-        rewrite it or replace it. (2) A commit has
-        <code>AI-Verdict: CAP_REACHED</code> or
-        <code>AI-Verdict: OVERRIDE</code>. The gate blocks these on
-        purpose so a human reviews them first. Decide whether the
-        flagged concern is real. If it is, redo the work so a new commit
-        genuinely earns <code>PASS</code>. If it is not, merge with an
-        admin override so the audit trail of why the original commit was
-        flagged is preserved.
+        Usually one cause: a commit on the branch is missing the AI
+        tag lines, or one has a malformed <code>AI-Verdict</code> (must
+        be <code>PASS</code> or <code>OVERRIDE</code>). Find the bad
+        commit in the failed check log and either rewrite it or replace
+        it. <code>OVERRIDE</code> commits pass the gate automatically;
+        no label or extra approval is required.
     </p>
 </details>
 <details>
@@ -188,9 +175,8 @@ gh pr create --base master</pre>
     <p>
         Use a branch name that does not start with <code>feature/</code>,
         <code>fix/</code>, or <code>task/</code>. Do not add anything
-        under <code>ai_coding/active</code>,
-        <code>ai_coding/archive</code>, or
-        <code>ai_coding/quarantine</code>. The merge gate will skip the
+        under <code>ai_coding/active</code> or
+        <code>ai_coding/archive</code>. The merge gate will skip the
         check and your pull request goes through normal review. The
         Claude Code PreToolUse hook only blocks edits that Claude makes,
         so a human editing files directly is unaffected. To skip the
@@ -205,6 +191,16 @@ gh pr create --base master</pre>
         reset your branch with
         <code>git reset --hard origin/master</code>, and begin again.
         The pipeline does not keep any state outside that folder.
+    </p>
+</details>
+<details>
+    <summary>Auto-archive workflow didn't move my folder</summary>
+    <p>
+        Check that <code>ai_coding/active/&lt;task&gt;/STATUS</code>
+        contains <code>PASS</code> or <code>OVERRIDE</code> (and nothing
+        else, no trailing whitespace beyond a newline). If it does and
+        the workflow still didn't move it, run the backup utility
+        locally: <code>python ai_coding/clear_queue.py --task &lt;task&gt;</code>.
     </p>
 </details>
 </body>

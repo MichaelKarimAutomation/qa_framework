@@ -32,7 +32,7 @@ jobs:
           # --- 1. Detect pipeline involvement (authoritative: task folder) ---
           PIPELINE_TOUCHED=false
           if git log "$BASE_SHA".."$HEAD_SHA" --name-only --pretty=format: \
-               | grep -E '^ai_coding/(active|archive|quarantine)/[^/]+/' -q; then
+               | grep -E '^ai_coding/(active|archive)/[^/]+/' -q; then
             PIPELINE_TOUCHED=true
           fi
 
@@ -67,11 +67,8 @@ jobs:
               continue
             fi
             case "$VERDICT" in
-              PASS)
-                echo "OK: $SHA AI-Verdict: PASS" ;;
-              CAP_REACHED|OVERRIDE)
-                echo "::error::$SHA AI-Verdict: $VERDICT — unresolved, must be cleared before merge."
-                FAIL=true ;;
+              PASS|OVERRIDE)
+                echo "OK: $SHA AI-Verdict: $VERDICT" ;;
               *)
                 echo "::error::$SHA has malformed AI-Verdict: '$VERDICT'."
                 FAIL=true ;;

@@ -61,7 +61,8 @@ qa_framework/
 ├── tools/                  # Git hook installers + versioned hooks under tools/hooks/
 ├── docs/                   # Sphinx source + bundled HTML install guides
 ├── .github/workflows/      # GitHub Actions CI pipelines (tests + docs deploy)
-├── ai_coding/              # CLAUDE.md task pipeline (active/, archive/, reviewer.py)
+├── ai_coding/              # CLAUDE.md task pipeline (active/, archive/, clear_queue.py)
+├── archived/               # Deprecated source files (graveyard) — see CLAUDE.md §13
 ├── .env.example            # Required env-var template; conftest validates against it
 ├── Dockerfile              # Container definition
 ├── Makefile                # Developer shortcuts (run `make help`)
@@ -96,9 +97,9 @@ bash tools/install-hooks.sh
 ```
 
 The hooks check the CLAUDE.md §2-§7 rules on each commit: required task
-files are present, STATUS is valid, commit trailers match the local
-review, and diffs land in the right task folder. To verify the hooks
-without running pytest or ollama, run the self-test:
+files are present, STATUS is valid, commit trailers match the deep
+review verdict, and diffs land in the right task folder. To verify the
+hooks without running pytest, run the self-test:
 
 ```bash
 bash tools/hooks-selftest.sh

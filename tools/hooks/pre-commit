@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# pre-commit — enforce CLAUDE.md §2-§6 task-folder artifacts on every commit.
+# pre-commit: enforce CLAUDE.md §2-§6 task-folder artifacts on every commit.
 #
 # Why this exists: CLAUDE.md is prose, not enforcement. commit-msg only
 # guards §7 trailers. Nothing prevented commits that skipped §2 artifact
@@ -7,22 +7,22 @@
 #
 # Hook split (deliberate):
 #   * pre-commit (this file) inspects the staged index and on-disk files.
-#     It cannot read the commit message — git doesn't surface the message
-#     at pre-commit time. So it owns the filesystem-only checks: artifact
-#     presence + staging, STATUS token validity, review_local.md ↔
+#     It cannot read the commit message (git doesn't surface the message
+#     at pre-commit time), so it owns the filesystem-only checks: artifact
+#     presence + staging, STATUS token validity, review.md vs
 #     disagreements.log consistency.
 #   * commit-msg owns the checks that need both the message and the disk:
-#     AI-Verdict ↔ STATUS file match, AI-Verdict consistency with
-#     review_local.md VERDICT.
+#     AI-Verdict vs STATUS file match, AI-Verdict consistency with
+#     review.md VERDICT.
 #
-# Special case — close-out commits: a commit whose staged set is purely
-# renames of ai_coding/active/<x>/... → ai_coding/archive/<x>/... is §11
-# bookkeeping. The source folder already passed §2-§7 in an earlier commit.
-# Such commits are exempted from all checks below.
+# Special case (close-out commits): a commit whose staged set is purely
+# renames of ai_coding/active/<x>/... to ai_coding/archive/<x>/... is §11
+# auto-archive bookkeeping. The source folder already passed §2-§7 in an
+# earlier commit. Such commits are exempted from all checks below.
 #
 # Constraints:
 #   * POSIX-sh safe (Git for Windows MSYS bash). No bashisms.
-#   * Disk-only. NEVER blocks on missing python / missing ollama / network.
+#   * Disk-only. NEVER blocks on missing python / network.
 #   * Exit 0 to accept, non-zero to reject.
 
 set -u
@@ -105,7 +105,7 @@ is_staged() {
 for TASK in $TASKS; do
   DIR="ai_coding/active/$TASK"
 
-  for FN in PROGRESS.md STATUS disagreements.log diff.patch review_local.md; do
+  for FN in PROGRESS.md STATUS disagreements.log diff.patch review.md; do
     FP="$DIR/$FN"
     if [ ! -f "$REPO_ROOT/$FP" ]; then
       ERR="${ERR}  - $TASK: missing $FN on disk
@@ -125,69 +125,69 @@ for TASK in $TASKS; do
   if [ -f "$STATUS_FP" ]; then
     STATUS=$(tr -d ' \t\r\n' < "$STATUS_FP")
     case "$STATUS" in
-      PASS|CAP_REACHED|OVERRIDE) : ;;
+      PASS|OVERRIDE) : ;;
       *)
-        ERR="${ERR}  - $TASK: STATUS='$STATUS' (must be PASS | CAP_REACHED | OVERRIDE)
+        ERR="${ERR}  - $TASK: STATUS='$STATUS' (must be PASS | OVERRIDE)
 "
         FAIL=1
         ;;
     esac
   fi
 
-  REVIEW_FP="$REPO_ROOT/$DIR/review_local.md"
+  REVIEW_FP="$REPO_ROOT/$DIR/review.md"
   if [ -f "$REVIEW_FP" ]; then
     LAST_V=$(grep -E '^VERDICT:' "$REVIEW_FP" | tail -1 \
              | sed 's/^VERDICT:[[:space:]]*//' | tr -d ' \t\r\n')
     case "$LAST_V" in
       PASS)
-        : ;;
-      FAIL)
-        DLOG="$REPO_ROOT/$DIR/disagreements.log"
-        OV_OK=0
-        if [ -f "$DLOG" ] && \
-           ( grep -qF '[OVERRIDE]' "$DLOG" \
-             || grep -qF '[CAP_REACHED]' "$DLOG" ); then
-          OV_OK=1
-        fi
-        if [ "$OV_OK" -ne 1 ]; then
-          ERR="${ERR}  - $TASK: review_local.md ends with VERDICT: FAIL but disagreements.log has no [OVERRIDE] or [CAP_REACHED] entry
-"
-          FAIL=1
-        fi
-        if [ -n "$STATUS" ] \
-           && [ "$STATUS" != "OVERRIDE" ] && [ "$STATUS" != "CAP_REACHED" ]; then
-          ERR="${ERR}  - $TASK: review_local.md VERDICT: FAIL but STATUS='$STATUS' (must be OVERRIDE or CAP_REACHED)
+        if [ -n "$STATUS" ] && [ "$STATUS" != "PASS" ]; then
+          ERR="${ERR}  - $TASK: review.md VERDICT: PASS but STATUS='$STATUS' (must be PASS)
 "
           FAIL=1
         fi
         ;;
+      OVERRIDE)
+        DLOG="$REPO_ROOT/$DIR/disagreements.log"
+        if [ ! -f "$DLOG" ] || ! grep -qF '[OVERRIDE]' "$DLOG"; then
+          ERR="${ERR}  - $TASK: review.md VERDICT: OVERRIDE but disagreements.log has no [OVERRIDE] entry
+"
+          FAIL=1
+        fi
+        if [ -n "$STATUS" ] && [ "$STATUS" != "OVERRIDE" ]; then
+          ERR="${ERR}  - $TASK: review.md VERDICT: OVERRIDE but STATUS='$STATUS' (must be OVERRIDE)
+"
+          FAIL=1
+        fi
+        ;;
+      FAIL)
+        # FAIL is an intermediate state per CLAUDE.md §6: never the final
+        # verdict in a commit. If we see it here, the §6 loop didn't finish
+        # (no PASS via fix, no OVERRIDE via human acceptance). Reject.
+        ERR="${ERR}  - $TASK: review.md ends with VERDICT: FAIL (intermediate state; resolve via fix or OVERRIDE before committing)
+"
+        FAIL=1
+        ;;
       ""|*)
-        # No VERDICT line — or a malformed one — typically means the model
-        # broke its §6 contract (reviewer.py fail-safes to FAIL when it
-        # can't parse). The OVERRIDE / CAP_REACHED escape hatch in §6 must
-        # still work in that case, otherwise the hook bricks recovery.
-        # Treat as if the review is FAIL: require STATUS to be OVERRIDE or
-        # CAP_REACHED and disagreements.log to carry the matching marker.
+        # No VERDICT line, or a malformed one. Either Claude broke the §6
+        # contract, or this is a corrupt/partial artifact. Reject unless
+        # STATUS=OVERRIDE and disagreements.log has [OVERRIDE], which
+        # preserves the §6 escape hatch if the review.md write itself
+        # misfires.
         DLOG="$REPO_ROOT/$DIR/disagreements.log"
         OV_OK=0
-        if [ -f "$DLOG" ] && \
-           ( grep -qF '[OVERRIDE]' "$DLOG" \
-             || grep -qF '[CAP_REACHED]' "$DLOG" ); then
+        if [ -f "$DLOG" ] && grep -qF '[OVERRIDE]' "$DLOG"; then
           OV_OK=1
         fi
-        if [ -n "$STATUS" ] \
-           && [ "$STATUS" != "OVERRIDE" ] && [ "$STATUS" != "CAP_REACHED" ]; then
+        if [ -n "$STATUS" ] && [ "$STATUS" = "OVERRIDE" ] && [ "$OV_OK" = "1" ]; then
+          : # escape hatch, accept
+        else
           if [ -z "$LAST_V" ]; then
-            ERR="${ERR}  - $TASK: review_local.md has no VERDICT: line (STATUS='$STATUS')
+            ERR="${ERR}  - $TASK: review.md has no VERDICT: line (STATUS='$STATUS')
 "
           else
-            ERR="${ERR}  - $TASK: review_local.md last VERDICT='$LAST_V' (must be PASS or FAIL; STATUS='$STATUS')
+            ERR="${ERR}  - $TASK: review.md last VERDICT='$LAST_V' (must be PASS, OVERRIDE, or, only as intermediate state, FAIL)
 "
           fi
-          FAIL=1
-        elif [ "$OV_OK" -ne 1 ]; then
-          ERR="${ERR}  - $TASK: review_local.md lacks a usable VERDICT line and disagreements.log has no [OVERRIDE]/[CAP_REACHED] entry
-"
           FAIL=1
         fi
         ;;

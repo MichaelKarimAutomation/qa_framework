@@ -50,7 +50,7 @@ function BAD([string]$name) { Write-Host "  [FAIL] $name"; $Script:Fail++; $Scri
 
 function Init-Repo {
   $scratch = Join-Path $Script:CleanupPath 'scratch'
-  # cd out before deletion — Windows locks the directory if any process has
+  # cd out before deletion. Windows locks the directory if any process has
   # its CWD inside it.
   Set-Location -LiteralPath $Script:RepoRoot
   if (Test-Path -LiteralPath $scratch) { Remove-Item -LiteralPath $scratch -Recurse -Force }
@@ -78,7 +78,7 @@ function Write-Task {
   $Status    | Out-File -Encoding ascii (Join-Path $dir 'STATUS')
   $DLog      | Out-File -Encoding ascii -NoNewline (Join-Path $dir 'disagreements.log')
   'diff body' | Out-File -Encoding ascii (Join-Path $dir 'diff.patch')
-  ("review body`n`nVERDICT: $Review`n") | Out-File -Encoding ascii (Join-Path $dir 'review_local.md')
+  ("review body`n`nVERDICT: $Review`n") | Out-File -Encoding ascii (Join-Path $dir 'review.md')
   & git add $dir | Out-Null
 }
 
@@ -98,7 +98,7 @@ function Closeout-Rename {
 }
 
 function Run-PreCommit {
-  # Merge bash stdout+stderr and discard — we only care about exit code.
+  # Merge bash stdout+stderr and discard. We only care about exit code.
   $null = & $Bash -c "'$($HooksDir -replace '\\','/')/pre-commit'" 2>&1
   return $LASTEXITCODE
 }
@@ -160,9 +160,9 @@ Write-Host "pre-commit cases:"
 
   Init-Repo
   Write-Task 'no-review' 'PASS' 'PASS'
-  Remove-Item ai_coding/active/no-review/review_local.md
-  & git rm -q --cached ai_coding/active/no-review/review_local.md | Out-Null
-  Expect-PreFail '06 missing review_local.md rejects'
+  Remove-Item ai_coding/active/no-review/review.md
+  & git rm -q --cached ai_coding/active/no-review/review.md | Out-Null
+  Expect-PreFail '06 missing review.md rejects'
 
   Init-Repo
   Write-Task 'status-unstaged' 'PASS' 'PASS'
@@ -175,13 +175,37 @@ Write-Host "pre-commit cases:"
   & git add ai_coding/active/bad-status/STATUS | Out-Null
   Expect-PreFail "08 STATUS contents 'FOOBAR' rejects"
 
+  # 8a. STATUS=CAP_REACHED (legacy verdict) rejects -- pin against resurfacing.
   Init-Repo
-  Write-Task 'fail-no-override' 'OVERRIDE' 'FAIL' ''
-  Expect-PreFail '09 review FAIL without [OVERRIDE]/[CAP_REACHED] rejects'
+  Write-Task 'legacy-cap' 'PASS' 'PASS'
+  'CAP_REACHED' | Out-File -Encoding ascii ai_coding/active/legacy-cap/STATUS
+  & git add ai_coding/active/legacy-cap/STATUS | Out-Null
+  Expect-PreFail '08a STATUS=CAP_REACHED (legacy) rejects'
 
+  # 9. review.md VERDICT: FAIL is an intermediate state -- always rejects.
   Init-Repo
-  Write-Task 'fail-with-override' 'OVERRIDE' 'FAIL' '[OVERRIDE] reason'
-  Expect-PrePass '10 review FAIL + STATUS=OVERRIDE + [OVERRIDE] in disagreements accepts'
+  Write-Task 'review-fail' 'OVERRIDE' 'FAIL' '[OVERRIDE] reason'
+  Expect-PreFail '09 review.md VERDICT: FAIL rejects (intermediate state)'
+
+  # 10. review.md VERDICT: OVERRIDE + STATUS=OVERRIDE + [OVERRIDE] accepts.
+  Init-Repo
+  Write-Task 'override-clean' 'OVERRIDE' 'OVERRIDE' '[OVERRIDE] reason'
+  Expect-PrePass '10 review OVERRIDE + STATUS=OVERRIDE + [OVERRIDE] accepts'
+
+  # 10a. review.md VERDICT: OVERRIDE without [OVERRIDE] in disagreements rejects.
+  Init-Repo
+  Write-Task 'override-no-marker' 'OVERRIDE' 'OVERRIDE' ''
+  Expect-PreFail '10a review OVERRIDE without [OVERRIDE] marker rejects'
+
+  # 10b. review.md VERDICT: OVERRIDE but STATUS=PASS rejects.
+  Init-Repo
+  Write-Task 'override-status-mismatch' 'PASS' 'OVERRIDE' '[OVERRIDE] reason'
+  Expect-PreFail '10b review OVERRIDE but STATUS=PASS rejects'
+
+  # 10c. review.md VERDICT: PASS but STATUS=OVERRIDE rejects.
+  Init-Repo
+  Write-Task 'pass-status-mismatch' 'OVERRIDE' 'PASS' '[OVERRIDE] reason'
+  Expect-PreFail '10c review PASS but STATUS=OVERRIDE rejects'
 
   # 11. Close-out pure rename.
   Init-Repo
@@ -212,7 +236,7 @@ Write-Host "pre-commit cases:"
   # 13a. Missing VERDICT line + STATUS=PASS -> reject.
   Init-Repo
   Write-Task 'no-verdict-pass' 'PASS' 'PASS'
-  $rfile = 'ai_coding/active/no-verdict-pass/review_local.md'
+  $rfile = 'ai_coding/active/no-verdict-pass/review.md'
   (Get-Content $rfile) | Where-Object { $_ -notmatch '^VERDICT:' } | Set-Content $rfile -Encoding ascii
   & git add $rfile | Out-Null
   Expect-PreFail '13a missing VERDICT + STATUS=PASS rejects'
@@ -220,7 +244,7 @@ Write-Host "pre-commit cases:"
   # 13b. Missing VERDICT line + STATUS=OVERRIDE + [OVERRIDE] -> accept.
   Init-Repo
   Write-Task 'no-verdict-override' 'OVERRIDE' 'PASS' '[OVERRIDE] reason'
-  $rfile = 'ai_coding/active/no-verdict-override/review_local.md'
+  $rfile = 'ai_coding/active/no-verdict-override/review.md'
   (Get-Content $rfile) | Where-Object { $_ -notmatch '^VERDICT:' } | Set-Content $rfile -Encoding ascii
   & git add $rfile | Out-Null
   Expect-PrePass '13b missing VERDICT + STATUS=OVERRIDE + [OVERRIDE] accepts'
@@ -241,10 +265,16 @@ Write-Host "pre-commit cases:"
   Write-Msg msg.txt 'good2' 'SOMETHING'
   Expect-MsgFail 'msg.txt' '16 malformed AI-Verdict rejects'
 
+  # 16a. CAP_REACHED in AI-Verdict (legacy) rejects -- regression pin.
+  Init-Repo
+  Write-Task 'legacy-cap-trailer' 'PASS' 'PASS'
+  Write-Msg msg.txt 'legacy-cap-trailer' 'CAP_REACHED'
+  Expect-MsgFail 'msg.txt' '16a AI-Verdict: CAP_REACHED (legacy) rejects'
+
   Init-Repo
   Write-Task 'mismatch' 'PASS' 'PASS'
-  Write-Msg msg.txt 'mismatch' 'CAP_REACHED'
-  Expect-MsgFail 'msg.txt' '17 STATUS=PASS but AI-Verdict=CAP_REACHED rejects'
+  Write-Msg msg.txt 'mismatch' 'OVERRIDE'
+  Expect-MsgFail 'msg.txt' '17 STATUS=PASS but AI-Verdict=OVERRIDE rejects'
 
   Init-Repo
   Write-Task 'review-fail-but-pass-trailer' 'OVERRIDE' 'FAIL' '[OVERRIDE] x'
@@ -252,6 +282,12 @@ Write-Host "pre-commit cases:"
   & git add ai_coding/active/review-fail-but-pass-trailer/STATUS | Out-Null
   Write-Msg msg.txt 'review-fail-but-pass-trailer' 'PASS'
   Expect-MsgFail 'msg.txt' '18 review FAIL but AI-Verdict=PASS rejects'
+
+  # 18a. review.md VERDICT: OVERRIDE + AI-Verdict=OVERRIDE + STATUS=OVERRIDE accepts.
+  Init-Repo
+  Write-Task 'msg-override-clean' 'OVERRIDE' 'OVERRIDE' '[OVERRIDE] x'
+  Write-Msg msg.txt 'msg-override-clean' 'OVERRIDE'
+  Expect-MsgPass 'msg.txt' '18a OVERRIDE end-to-end accepts'
 
   Init-Repo
   New-Item -ItemType Directory -Path ai_coding/active/oldtask3 -Force | Out-Null

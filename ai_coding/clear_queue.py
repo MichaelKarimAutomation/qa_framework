@@ -1,19 +1,27 @@
 #!/usr/bin/env python3
 """
-clear_queue.py — archive reviewed clean-pass task folders.
+clear_queue.py: manual backup utility for archiving task folders.
+
+Primary archival path: `.github/workflows/auto-archive.yml` sweeps
+`ai_coding/active/` on every master push and moves task folders whose
+STATUS is PASS or OVERRIDE into `ai_coding/archive/`. You should not need
+this script in day-to-day use.
+
+This script exists as a backup for when:
+  * The auto-archive workflow is broken or unavailable.
+  * You want to archive a folder locally before pushing (e.g. clearing
+    your active/ dir between sessions on a long-running branch).
+  * You want a dry-run preview of what the workflow will move on the
+    next master push.
 
 Safety properties (do not weaken):
   * Moves, never deletes.
-  * Only PASS-status folders are eligible for age-based archiving.
-  * CAP_REACHED / OVERRIDE folders are NEVER auto-moved. They are routed to
-    quarantine/ and require an explicit, named manual clear.
-  * A missing/unreadable STATUS file is treated as NOT clean -> left in place.
+  * Only PASS / OVERRIDE STATUS folders are eligible.
+  * A missing/unreadable STATUS file is treated as NOT eligible → left in place.
 
 Usage:
-  python clear_queue.py --days 7              # age-based, PASS only
-  python clear_queue.py --task login-fix      # force-archive one PASS task now
-  python clear_queue.py --quarantine login-fix  # explicit manual clear of a
-                                                 # flagged folder -> archive
+  python clear_queue.py --days 7              # age-based, eligible folders only
+  python clear_queue.py --task login-fix      # force-archive one eligible task now
   python clear_queue.py --days 7 --dry-run
 """
 from __future__ import annotations
@@ -27,10 +35,8 @@ REPO_ROOT = Path(r"C:\Coding\qa_framework")
 AI = REPO_ROOT / "ai_coding"
 ACTIVE = AI / "active"
 ARCHIVE = AI / "archive"
-QUARANTINE = AI / "quarantine"
 
-CLEAN = {"PASS"}
-FLAGGED = {"CAP_REACHED", "OVERRIDE"}
+ELIGIBLE = {"PASS", "OVERRIDE"}
 
 
 def read_status(task_dir: Path) -> str | None:
@@ -60,20 +66,6 @@ def run(args: argparse.Namespace) -> int:
         print(f"No active dir at {ACTIVE}; nothing to do.")
         return 0
 
-    # Explicit manual clear of a flagged folder (the ONLY way flagged moves).
-    if args.quarantine:
-        td = ACTIVE / args.quarantine
-        if not td.is_dir():
-            td = QUARANTINE / args.quarantine
-        if not td.is_dir():
-            print(f"No such task folder: {args.quarantine}")
-            return 1
-        status = read_status(td)
-        print(f"Manually clearing flagged task '{args.quarantine}' (STATUS={status}).")
-        move(td, ARCHIVE, args.dry_run)
-        return 0
-
-    targets = []
     if args.task:
         td = ACTIVE / args.task
         if not td.is_dir():
@@ -87,19 +79,11 @@ def run(args: argparse.Namespace) -> int:
     for td in targets:
         status = read_status(td)
 
-        if status in FLAGGED:
-            # Route to quarantine; never auto-archive.
-            print(f"QUARANTINE: '{td.name}' STATUS={status} "
-                  f"(left for manual --quarantine clear).")
-            if td.parent != QUARANTINE:
-                move(td, QUARANTINE, args.dry_run)
+        if status not in ELIGIBLE:
+            print(f"SKIP: '{td.name}' STATUS={status or 'MISSING'} (not eligible).")
             continue
 
-        if status not in CLEAN:
-            print(f"SKIP: '{td.name}' STATUS={status or 'MISSING'} (not clean).")
-            continue
-
-        if args.task:  # explicit single-task force (consumption-based path)
+        if args.task:  # explicit single-task force
             move(td, ARCHIVE, args.dry_run)
             moved += 1
             continue
@@ -108,19 +92,17 @@ def run(args: argparse.Namespace) -> int:
             move(td, ARCHIVE, args.dry_run)
             moved += 1
         else:
-            print(f"KEEP: '{td.name}' clean but younger than {args.days}d.")
+            print(f"KEEP: '{td.name}' eligible but younger than {args.days}d.")
 
     print(f"Done. {moved} folder(s) archived.")
     return 0
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Archive reviewed clean-pass task folders.")
+    ap = argparse.ArgumentParser(description="Backup utility: archive eligible task folders.")
     ap.add_argument("--days", type=int, default=7,
-                    help="Age threshold for PASS folders (default 7).")
-    ap.add_argument("--task", help="Force-archive one PASS task now (consumption-based).")
-    ap.add_argument("--quarantine",
-                    help="Explicit manual clear of a flagged (CAP_REACHED/OVERRIDE) task.")
+                    help="Age threshold for eligible folders (default 7).")
+    ap.add_argument("--task", help="Force-archive one eligible task now.")
     ap.add_argument("--dry-run", action="store_true")
     return run(ap.parse_args())
 

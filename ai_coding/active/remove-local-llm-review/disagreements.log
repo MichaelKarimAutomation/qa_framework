@@ -1,0 +1,5 @@
+[2026-05-21] [NOTE] follow-up commit 2: text-only cleanup (historical
+  phrasing + em-dash scrub) on top of ea14066. No verdict change, no
+  override required. Recorded here only because the pre-commit hook
+  requires every §2 task-folder artifact to be in the staged set on
+  every commit touching the active/<task>/ folder.

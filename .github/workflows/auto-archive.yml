@@ -1,0 +1,114 @@
+name: Auto-Archive Task Folders
+
+# Sweeps ai_coding/active/<task>/ on every master push. Any folder whose
+# STATUS is PASS or OVERRIDE is moved into ai_coding/archive/<task>/. The
+# workflow's own commit carries [skip ci] so it does not re-trigger itself
+# or the test suite.
+#
+# Skipped when the head commit message contains [auto-archive]: that's
+# how we prevent the workflow from acting on its own previous commit if
+# GitHub ever delivers an out-of-band event.
+
+on:
+  push:
+    branches: [master]
+
+# Serialize: two near-simultaneous master pushes both trigger this workflow;
+# without a concurrency group, the second run's `git push` would race against
+# the first's and one would fail non-fast-forward.
+concurrency:
+  group: auto-archive-master
+  cancel-in-progress: false
+
+jobs:
+  auto_archive:
+    if: "!contains(github.event.head_commit.message, '[auto-archive]')"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sweep active/ for PASS / OVERRIDE folders
+        id: sweep
+        shell: bash
+        run: |
+          set -e
+          ACTIVE_DIR="ai_coding/active"
+          ARCHIVE_DIR="ai_coding/archive"
+          MOVED=()
+          if [ ! -d "$ACTIVE_DIR" ]; then
+            echo "No active/ directory; nothing to do."
+            echo "moved_count=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          for raw in "$ACTIVE_DIR"/*/; do
+            [ -d "$raw" ] || continue
+            # Strip trailing slash so git mv gets a clean directory path.
+            d="${raw%/}"
+            task=$(basename "$d")
+            status_file="$d/STATUS"
+            if [ ! -f "$status_file" ]; then
+              echo "skip: $task has no STATUS file"
+              continue
+            fi
+            status=$(tr -d ' \t\r\n' < "$status_file")
+            case "$status" in
+              PASS|OVERRIDE)
+                echo "archiving: $task (STATUS=$status)"
+                mkdir -p "$ARCHIVE_DIR"
+                # If somehow already exists in archive/, append a timestamp.
+                dest="$ARCHIVE_DIR/$task"
+                if [ -d "$dest" ]; then
+                  dest="${dest}_$(date -u +%Y%m%dT%H%M%SZ)"
+                fi
+                git mv "$d" "$dest"
+                MOVED+=("$task")
+                ;;
+              *)
+                echo "skip: $task STATUS=$status"
+                ;;
+            esac
+          done
+
+          printf 'moved_count=%d\n' "${#MOVED[@]}" >> "$GITHUB_OUTPUT"
+          if [ "${#MOVED[@]}" -gt 0 ]; then
+            { printf 'moved<<EOF\n'
+              printf '%s\n' "${MOVED[@]}"
+              printf 'EOF\n'
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push archive moves
+        if: steps.sweep.outputs.moved_count != '0'
+        shell: bash
+        env:
+          MOVED: ${{ steps.sweep.outputs.moved }}
+        run: |
+          set -e
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Build commit message. Subject includes [skip ci] so this push
+          # does not retrigger tests.yml. Body lists archived tasks. The
+          # AI-Task trailer is a sentinel value ('auto-archive') since one
+          # commit can move multiple task folders; the close-out exemption
+          # in pre-commit / commit-msg recognises pure active->archive
+          # renames and skips per-task consistency checks.
+          {
+            printf 'chore(auto-archive): move task folders to archive [skip ci] [auto-archive]\n\n'
+            printf 'Archived tasks (STATUS in {PASS, OVERRIDE}):\n'
+            printf '%s\n' "$MOVED" | sed 's/^/  - /'
+            printf '\nAI-Verdict: PASS\n'
+            printf 'AI-Task: auto-archive\n'
+          } > /tmp/commit-msg.txt
+
+          git commit -F /tmp/commit-msg.txt
+          git push origin master

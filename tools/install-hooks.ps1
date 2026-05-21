@@ -33,6 +33,6 @@ foreach ($h in @('pre-commit', 'commit-msg', 'post-commit')) {
 & git config core.hooksPath tools/hooks
 
 Write-Host 'installed: core.hooksPath = tools/hooks'
-Write-Host '  pre-commit   : enforces CLAUDE.md sections 2-6 artifact presence'
+Write-Host '  pre-commit   : enforces CLAUDE.md sections 2-6 artifact presence (PASS | OVERRIDE)'
 Write-Host '  commit-msg   : enforces section 7 trailers + section 6-7 trailer consistency'
 Write-Host '  post-commit  : routes the just-committed diff into the task folder'
