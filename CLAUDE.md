@@ -111,9 +111,11 @@ Only reached when §4 passed, §5 passed, and §6 resolved (PASS or OVERRIDE).
   them. Omitting them is a defect, not a shortcut.
 
 ## 8. Post-Commit (automatic, do not invoke manually)
-The post-commit hook reads the AI-Task trailer and routes the
-committed diff into ai_coding/active/<task>/. You do not call this; it fires
-on commit. Just ensure the trailer is correct.
+The post-commit hook parses the AI-Task / AI-Verdict trailers on the
+just-made commit, logs any commit missing the AI-Task trailer to
+ai_coding/UNROUTED.log, and fires a desktop notification. It writes
+nothing into the task folder. You do not call this; it fires on commit.
+Just ensure the trailer is correct.
 
 ## 9. PROGRESS.md Checkpointing
 - Update ai_coding/active/<task>/PROGRESS.md at MEANINGFUL BOUNDARIES only:

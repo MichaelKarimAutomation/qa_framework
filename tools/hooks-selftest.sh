@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # hooks-selftest.sh: exercise tools/hooks/{pre-commit,commit-msg,post-commit}
 # against synthetic staged sets in a temp git repo. Asserts each rejection
-# branch of pre-commit and pins the post-commit tri-branch routing fix.
+# branch of pre-commit and pins the post-commit contract that it writes
+# no diff_*.patch snapshots and creates no active task stubs.
 #
 # Standalone: does not require pytest or any project dependency.
 # Run via:  bash tools/hooks-selftest.sh
@@ -290,13 +291,24 @@ write_msg msg.txt archive-oldtask3 PASS
 expect_msg_pass msg.txt "19 close-out commit-msg accepts with bare trailers"
 
 # =============================================================================
-# POST-COMMIT TEST CASES: the heart of fix B.
+# POST-COMMIT TEST CASES: contract is that the hook writes no diff_*.patch
+# snapshots and creates no active task stubs, in every routing scenario.
 # =============================================================================
 printf 'post-commit cases:\n'
 
-# 20. Archive-only routing: archive/<task>/ exists, active/<task>/ does not.
-#     A subsequent commit with AI-Task: <task> must NOT recreate an active
-#     stub: diff must land in archive/<task>/.
+# Count diff_*.patch files under a directory (0 if dir missing). Used by every
+# case below. `find -maxdepth 1` keeps each assertion local to the named dir.
+count_diff_patches() {
+  if [ ! -d "$1" ]; then
+    printf '0'
+    return
+  fi
+  find "$1" -maxdepth 1 -name 'diff_*.patch' 2>/dev/null | wc -l | tr -d ' '
+}
+
+# 20. Archive-only: archive/<task>/ exists, active/<task>/ does not. A commit
+#     with AI-Task: <task> must not write any diff snapshot, anywhere, and
+#     must not create an active stub.
 init_repo
 mkdir -p ai_coding/archive/already-archived
 printf 'old\n' > ai_coding/archive/already-archived/PROGRESS.md
@@ -308,17 +320,18 @@ git commit -q --no-verify -m "scratch
 
 AI-Verdict: PASS
 AI-Task: already-archived"
-diff_in_archive=$(ls ai_coding/archive/already-archived/diff_*.patch 2>/dev/null | wc -l)
+diff_in_archive=$(count_diff_patches ai_coding/archive/already-archived)
+diff_in_active=$(count_diff_patches ai_coding/active/already-archived)
 active_dir_exists=0
 [ -d ai_coding/active/already-archived ] && active_dir_exists=1
-if [ "$diff_in_archive" -ge 1 ] && [ "$active_dir_exists" -eq 0 ]; then
-  ok "20 routing: archive-only → diff in archive, no active stub"
+if [ "$diff_in_archive" -eq 0 ] && [ "$diff_in_active" -eq 0 ] && [ "$active_dir_exists" -eq 0 ]; then
+  ok "20 archive-only: no diff written, no active stub"
 else
-  bad "20 routing: archive-only (diff_in_archive=$diff_in_archive active_dir_exists=$active_dir_exists)"
+  bad "20 archive-only (diff_in_archive=$diff_in_archive diff_in_active=$diff_in_active active_dir_exists=$active_dir_exists)"
 fi
 
-# 21. CRITICAL: close-out commit (rename active/x → archive/x) → routes to
-#     archive/x, NOT active/x. Pins fix B against regression.
+# 21. Close-out: rename active/x → archive/x then commit with AI-Task: x.
+#     Must not write a diff snapshot or recreate the active stub.
 init_repo
 mkdir -p ai_coding/active/closing-task
 printf 'progress\n' > ai_coding/active/closing-task/PROGRESS.md
@@ -329,16 +342,18 @@ git commit -q --no-verify -m "close out closing-task
 
 AI-Verdict: PASS
 AI-Task: closing-task"
-diff_in_archive=$(ls ai_coding/archive/closing-task/diff_*.patch 2>/dev/null | wc -l)
+diff_in_archive=$(count_diff_patches ai_coding/archive/closing-task)
+diff_in_active=$(count_diff_patches ai_coding/active/closing-task)
 active_dir_exists=0
 [ -d ai_coding/active/closing-task ] && active_dir_exists=1
-if [ "$diff_in_archive" -ge 1 ] && [ "$active_dir_exists" -eq 0 ]; then
-  ok "21 close-out rename → diff in archive, no active stub (fix B)"
+if [ "$diff_in_archive" -eq 0 ] && [ "$diff_in_active" -eq 0 ] && [ "$active_dir_exists" -eq 0 ]; then
+  ok "21 close-out rename: no diff written, no active stub"
 else
-  bad "21 close-out rename (diff_in_archive=$diff_in_archive active_dir_exists=$active_dir_exists)"
+  bad "21 close-out rename (diff_in_archive=$diff_in_archive diff_in_active=$diff_in_active active_dir_exists=$active_dir_exists)"
 fi
 
-# 22. Active-exists routing: standard case.
+# 22. Active exists: active/<task>/ already there from earlier in the task.
+#     The hook must not add a diff snapshot to it.
 init_repo
 mkdir -p ai_coding/active/normal-task
 printf 'progress\n' > ai_coding/active/normal-task/PROGRESS.md
@@ -350,14 +365,15 @@ git commit -q --no-verify -m "scratch
 
 AI-Verdict: PASS
 AI-Task: normal-task"
-diff_in_active=$(ls ai_coding/active/normal-task/diff_*.patch 2>/dev/null | wc -l)
-if [ "$diff_in_active" -ge 1 ]; then
-  ok "22 routing: active exists → diff in active"
+diff_in_active=$(count_diff_patches ai_coding/active/normal-task)
+if [ "$diff_in_active" -eq 0 ]; then
+  ok "22 active exists: no diff written"
 else
-  bad "22 routing: active exists (diff_in_active=$diff_in_active)"
+  bad "22 active exists (diff_in_active=$diff_in_active)"
 fi
 
-# 23. Fallback routing: neither active/<task>/ nor archive/<task>/ exists.
+# 23. Neither active/<task>/ nor archive/<task>/ exists. The hook must not
+#     create an active stub or write any diff snapshot.
 init_repo
 printf 'edit\n' > note.txt
 git add note.txt
@@ -365,11 +381,14 @@ git commit -q --no-verify -m "scratch
 
 AI-Verdict: PASS
 AI-Task: brand-new-task"
-diff_in_active=$(ls ai_coding/active/brand-new-task/diff_*.patch 2>/dev/null | wc -l)
-if [ "$diff_in_active" -ge 1 ]; then
-  ok "23 routing: neither exists → fallback to active"
+diff_in_active=$(count_diff_patches ai_coding/active/brand-new-task)
+diff_in_archive=$(count_diff_patches ai_coding/archive/brand-new-task)
+active_dir_exists=0
+[ -d ai_coding/active/brand-new-task ] && active_dir_exists=1
+if [ "$diff_in_active" -eq 0 ] && [ "$diff_in_archive" -eq 0 ] && [ "$active_dir_exists" -eq 0 ]; then
+  ok "23 neither exists: no stub created, no diff written"
 else
-  bad "23 routing: neither exists (diff_in_active=$diff_in_active)"
+  bad "23 neither exists (diff_in_active=$diff_in_active diff_in_archive=$diff_in_archive active_dir_exists=$active_dir_exists)"
 fi
 
 # =============================================================================

@@ -1,0 +1,1311 @@
+diff --git a/.gitignore b/.gitignore
+index c114b1d..ac0188b 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -27,7 +27,6 @@ docs/api/
+ # committed — they're the merge-gate's authoritative pipeline signal.)
+ ai_coding/UNROUTED.log
+ ai_coding/notify.log
+-ai_coding/**/diff_*_*.patch
+ 
+ # Claude Code per-user settings (the team-shared .claude/settings.json IS committed)
+ .claude/settings.local.json
+diff --git a/CLAUDE.md b/CLAUDE.md
+index b584ebe..e27053a 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -111,9 +111,11 @@ Only reached when §4 passed, §5 passed, and §6 resolved (PASS or OVERRIDE).
+   them. Omitting them is a defect, not a shortcut.
+ 
+ ## 8. Post-Commit (automatic, do not invoke manually)
+-The post-commit hook reads the AI-Task trailer and routes the
+-committed diff into ai_coding/active/<task>/. You do not call this; it fires
+-on commit. Just ensure the trailer is correct.
++The post-commit hook parses the AI-Task / AI-Verdict trailers on the
++just-made commit, logs any commit missing the AI-Task trailer to
++ai_coding/UNROUTED.log, and fires a desktop notification. It writes
++nothing into the task folder. You do not call this; it fires on commit.
++Just ensure the trailer is correct.
+ 
+ ## 9. PROGRESS.md Checkpointing
+ - Update ai_coding/active/<task>/PROGRESS.md at MEANINGFUL BOUNDARIES only:
+diff --git a/ai_coding/active/drop-post-commit-diff-snapshots/PROGRESS.md b/ai_coding/active/drop-post-commit-diff-snapshots/PROGRESS.md
+new file mode 100644
+index 0000000..6f2ca13
+--- /dev/null
++++ b/ai_coding/active/drop-post-commit-diff-snapshots/PROGRESS.md
+@@ -0,0 +1,33 @@
++# PROGRESS: drop-post-commit-diff-snapshots
++
++Branch: feat/drop-post-commit-diff-snapshots
++
++## Goal
++
++Stop the post-commit hook from writing per-commit `diff_<ts>_<sha>.patch`
++snapshots into `ai_coding/active|archive/<task>/`. The files duplicated
++information git already records, were gitignored (so never part of the
++repo record), and orphaned in `active/` after the auto-archive workflow
++moved the task folder.
++
++## Done
++
++- Branch cut from master.
++- Task folder created.
++- tools/hooks/post-commit: removed the routing block and the
++  git-diff-to-file block. The hook now parses trailers, logs commits
++  missing AI-Task to UNROUTED.log, and fires a desktop notification.
++- tools/hooks-selftest.{sh,ps1}: cases 20-23 rewritten to assert the
++  new contract (no diff_*.patch written, no active stub created) under
++  all four routing scenarios. Header comments updated.
++- .gitignore: removed the dead `ai_coding/**/diff_*_*.patch` rule.
++- 37 orphan `diff_*_*.patch` files physically removed from
++  ai_coding/active|archive/ (local cleanup; the files were never tracked).
++- CLAUDE.md §8: rewrote as a factual statement of the hook's behavior.
++- hooks-selftest: 31/31 green on both bash and PowerShell variants.
++- Full pytest: 37/37 green.
++- Deep review: PASS.
++
++## Remaining
++
++- Commit.
+diff --git a/ai_coding/active/drop-post-commit-diff-snapshots/STATUS b/ai_coding/active/drop-post-commit-diff-snapshots/STATUS
+new file mode 100644
+index 0000000..7ef22e9
+--- /dev/null
++++ b/ai_coding/active/drop-post-commit-diff-snapshots/STATUS
+@@ -0,0 +1 @@
++PASS
+diff --git a/ai_coding/active/drop-post-commit-diff-snapshots/diff.patch b/ai_coding/active/drop-post-commit-diff-snapshots/diff.patch
+new file mode 100644
+index 0000000..4c0a06e
+--- /dev/null
++++ b/ai_coding/active/drop-post-commit-diff-snapshots/diff.patch
+@@ -0,0 +1,790 @@
++diff --git a/.gitignore b/.gitignore
++index c114b1d..ac0188b 100644
++--- a/.gitignore
+++++ b/.gitignore
++@@ -27,7 +27,6 @@ docs/api/
++ # committed — they're the merge-gate's authoritative pipeline signal.)
++ ai_coding/UNROUTED.log
++ ai_coding/notify.log
++-ai_coding/**/diff_*_*.patch
++ 
++ # Claude Code per-user settings (the team-shared .claude/settings.json IS committed)
++ .claude/settings.local.json
++diff --git a/CLAUDE.md b/CLAUDE.md
++index b584ebe..e27053a 100644
++--- a/CLAUDE.md
+++++ b/CLAUDE.md
++@@ -111,9 +111,11 @@ Only reached when §4 passed, §5 passed, and §6 resolved (PASS or OVERRIDE).
++   them. Omitting them is a defect, not a shortcut.
++ 
++ ## 8. Post-Commit (automatic, do not invoke manually)
++-The post-commit hook reads the AI-Task trailer and routes the
++-committed diff into ai_coding/active/<task>/. You do not call this; it fires
++-on commit. Just ensure the trailer is correct.
+++The post-commit hook parses the AI-Task / AI-Verdict trailers on the
+++just-made commit, logs any commit missing the AI-Task trailer to
+++ai_coding/UNROUTED.log, and fires a desktop notification. It writes
+++nothing into the task folder. You do not call this; it fires on commit.
+++Just ensure the trailer is correct.
++ 
++ ## 9. PROGRESS.md Checkpointing
++ - Update ai_coding/active/<task>/PROGRESS.md at MEANINGFUL BOUNDARIES only:
++diff --git a/ai_coding/active/drop-post-commit-diff-snapshots/PROGRESS.md b/ai_coding/active/drop-post-commit-diff-snapshots/PROGRESS.md
++new file mode 100644
++index 0000000..6f2ca13
++--- /dev/null
+++++ b/ai_coding/active/drop-post-commit-diff-snapshots/PROGRESS.md
++@@ -0,0 +1,33 @@
+++# PROGRESS: drop-post-commit-diff-snapshots
+++
+++Branch: feat/drop-post-commit-diff-snapshots
+++
+++## Goal
+++
+++Stop the post-commit hook from writing per-commit `diff_<ts>_<sha>.patch`
+++snapshots into `ai_coding/active|archive/<task>/`. The files duplicated
+++information git already records, were gitignored (so never part of the
+++repo record), and orphaned in `active/` after the auto-archive workflow
+++moved the task folder.
+++
+++## Done
+++
+++- Branch cut from master.
+++- Task folder created.
+++- tools/hooks/post-commit: removed the routing block and the
+++  git-diff-to-file block. The hook now parses trailers, logs commits
+++  missing AI-Task to UNROUTED.log, and fires a desktop notification.
+++- tools/hooks-selftest.{sh,ps1}: cases 20-23 rewritten to assert the
+++  new contract (no diff_*.patch written, no active stub created) under
+++  all four routing scenarios. Header comments updated.
+++- .gitignore: removed the dead `ai_coding/**/diff_*_*.patch` rule.
+++- 37 orphan `diff_*_*.patch` files physically removed from
+++  ai_coding/active|archive/ (local cleanup; the files were never tracked).
+++- CLAUDE.md §8: rewrote as a factual statement of the hook's behavior.
+++- hooks-selftest: 31/31 green on both bash and PowerShell variants.
+++- Full pytest: 37/37 green.
+++- Deep review: PASS.
+++
+++## Remaining
+++
+++- Commit.
++diff --git a/ai_coding/active/drop-post-commit-diff-snapshots/diff.patch b/ai_coding/active/drop-post-commit-diff-snapshots/diff.patch
++new file mode 100644
++index 0000000..2b9cb6b
++--- /dev/null
+++++ b/ai_coding/active/drop-post-commit-diff-snapshots/diff.patch
++@@ -0,0 +1,393 @@
+++diff --git a/.gitignore b/.gitignore
+++index c114b1d..ac0188b 100644
+++--- a/.gitignore
++++++ b/.gitignore
+++@@ -27,7 +27,6 @@ docs/api/
+++ # committed — they're the merge-gate's authoritative pipeline signal.)
+++ ai_coding/UNROUTED.log
+++ ai_coding/notify.log
+++-ai_coding/**/diff_*_*.patch
+++ 
+++ # Claude Code per-user settings (the team-shared .claude/settings.json IS committed)
+++ .claude/settings.local.json
+++diff --git a/CLAUDE.md b/CLAUDE.md
+++index b584ebe..e27053a 100644
+++--- a/CLAUDE.md
++++++ b/CLAUDE.md
+++@@ -111,9 +111,11 @@ Only reached when §4 passed, §5 passed, and §6 resolved (PASS or OVERRIDE).
+++   them. Omitting them is a defect, not a shortcut.
+++ 
+++ ## 8. Post-Commit (automatic, do not invoke manually)
+++-The post-commit hook reads the AI-Task trailer and routes the
+++-committed diff into ai_coding/active/<task>/. You do not call this; it fires
+++-on commit. Just ensure the trailer is correct.
++++The post-commit hook parses the AI-Task / AI-Verdict trailers on the
++++just-made commit, logs any commit missing the AI-Task trailer to
++++ai_coding/UNROUTED.log, and fires a desktop notification. It writes
++++nothing into the task folder. You do not call this; it fires on commit.
++++Just ensure the trailer is correct.
+++ 
+++ ## 9. PROGRESS.md Checkpointing
+++ - Update ai_coding/active/<task>/PROGRESS.md at MEANINGFUL BOUNDARIES only:
+++diff --git a/ai_coding/active/drop-post-commit-diff-snapshots/PROGRESS.md b/ai_coding/active/drop-post-commit-diff-snapshots/PROGRESS.md
+++new file mode 100644
+++index 0000000..f9bd355
+++--- /dev/null
++++++ b/ai_coding/active/drop-post-commit-diff-snapshots/PROGRESS.md
+++@@ -0,0 +1,35 @@
++++# PROGRESS: drop-post-commit-diff-snapshots
++++
++++Branch: feat/drop-post-commit-diff-snapshots
++++
++++## Goal
++++
++++Stop the post-commit hook from writing per-commit `diff_<ts>_<sha>.patch`
++++snapshots into `ai_coding/active|archive/<task>/`. The files duplicate
++++information git already records, are gitignored (so they never form part
++++of the repo record), and orphan in `active/` after the auto-archive
++++workflow moves the task folder, creating manual cleanup.
++++
++++## Done
++++
++++- Branch cut from master.
++++- Task folder created.
++++- tools/hooks/post-commit: removed tri-branch routing, DIFF_FILE, and the
++++  git-diff-to-file block. Header rewritten. Trailer parsing, UNROUTED.log,
++++  and fire_notify retained.
++++- tools/hooks-selftest.{sh,ps1}: post-commit cases (20-23) rewritten to
++++  assert the new contract: hook writes NO diff_*.patch and creates NO
++++  active stub under any of the four routing scenarios. Header comments
++++  updated.
++++- .gitignore: removed dead `ai_coding/**/diff_*_*.patch` line.
++++- CLAUDE.md §8: rewrote to match the hook's new responsibility.
++++- hooks-selftest green (powershell variant on Windows).
++++- Full pytest suite green.
++++- Deep review PASS.
++++
++++## Remaining
++++
++++- Commit.
++++- One-time local cleanup of orphan `diff_*.patch` files in
++++  `ai_coding/active/` on each clone. Not part of this commit; the files
++++  are untracked locally and never entered git.
+++diff --git a/ai_coding/active/drop-post-commit-diff-snapshots/disagreements.log b/ai_coding/active/drop-post-commit-diff-snapshots/disagreements.log
+++new file mode 100644
+++index 0000000..e69de29
+++diff --git a/tools/hooks-selftest.ps1 b/tools/hooks-selftest.ps1
+++index 3ba79d4..e2aff54 100644
+++--- a/tools/hooks-selftest.ps1
++++++ b/tools/hooks-selftest.ps1
+++@@ -1,6 +1,7 @@
+++ # hooks-selftest.ps1 -- exercise tools/hooks/{pre-commit,commit-msg,post-commit}
+++ # against synthetic staged sets in a temp git repo. Asserts each rejection
+++-# branch of pre-commit and pins the post-commit tri-branch routing fix.
++++# branch of pre-commit and pins the post-commit contract that it writes
++++# no diff_*.patch snapshots and creates no active task stubs.
+++ #
+++ # The hooks themselves are POSIX-sh scripts (Git for Windows MSYS bash runs
+++ # them). This script invokes them via git's own commit machinery (hooksPath)
+++@@ -300,7 +301,16 @@ Write-Host "pre-commit cases:"
+++ 
+++   Write-Host "post-commit cases:"
+++ 
+++-  # 20. Archive-only routing.
++++  # Count diff_*.patch files under a directory (0 if dir missing). Local
++++  # helper so each assertion below is scoped to the named directory only.
++++  function Count-DiffPatches([string]$Path) {
++++    if (-not (Test-Path -LiteralPath $Path)) { return 0 }
++++    return @(Get-ChildItem -LiteralPath $Path -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
++++  }
++++
++++  # 20. Archive-only: archive/<task>/ exists, active/<task>/ does not. The
++++  #     post-commit hook must write no diff snapshot anywhere and must not
++++  #     create an active stub.
+++   Init-Repo
+++   New-Item -ItemType Directory -Path ai_coding/archive/already-archived -Force | Out-Null
+++   'old' | Out-File -Encoding ascii ai_coding/archive/already-archived/PROGRESS.md
+++@@ -309,15 +319,17 @@ Write-Host "pre-commit cases:"
+++   'change' | Out-File -Encoding ascii scratch.txt
+++   & git add scratch.txt | Out-Null
+++   & git commit -q --no-verify -m "scratch`n`nAI-Verdict: PASS`nAI-Task: already-archived" | Out-Null
+++-  $diffInArchive   = @(Get-ChildItem -Path ai_coding/archive/already-archived -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
++++  $diffInArchive   = Count-DiffPatches 'ai_coding/archive/already-archived'
++++  $diffInActive    = Count-DiffPatches 'ai_coding/active/already-archived'
+++   $activeDirExists = Test-Path -LiteralPath ai_coding/active/already-archived
+++-  if ($diffInArchive -ge 1 -and -not $activeDirExists) {
+++-    OK '20 routing: archive-only -> diff in archive, no active stub'
++++  if ($diffInArchive -eq 0 -and $diffInActive -eq 0 -and -not $activeDirExists) {
++++    OK '20 archive-only: no diff written, no active stub'
+++   } else {
+++-    BAD "20 routing: archive-only (diffInArchive=$diffInArchive activeDirExists=$activeDirExists)"
++++    BAD "20 archive-only (diffInArchive=$diffInArchive diffInActive=$diffInActive activeDirExists=$activeDirExists)"
+++   }
+++ 
+++-  # 21. CRITICAL: close-out rename -- fix B regression pin.
++++  # 21. Close-out: rename active/x -> archive/x then commit with AI-Task: x.
++++  #     Must not write a diff snapshot or recreate the active stub.
+++   Init-Repo
+++   New-Item -ItemType Directory -Path ai_coding/active/closing-task -Force | Out-Null
+++   'progress' | Out-File -Encoding ascii ai_coding/active/closing-task/PROGRESS.md
+++@@ -325,15 +337,17 @@ Write-Host "pre-commit cases:"
+++   & git commit -q --no-verify -m 'set up closing-task' | Out-Null
+++   Closeout-Rename 'closing-task'
+++   & git commit -q --no-verify -m "close out`n`nAI-Verdict: PASS`nAI-Task: closing-task" | Out-Null
+++-  $diffInArchive   = @(Get-ChildItem -Path ai_coding/archive/closing-task -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
++++  $diffInArchive   = Count-DiffPatches 'ai_coding/archive/closing-task'
++++  $diffInActive    = Count-DiffPatches 'ai_coding/active/closing-task'
+++   $activeDirExists = Test-Path -LiteralPath ai_coding/active/closing-task
+++-  if ($diffInArchive -ge 1 -and -not $activeDirExists) {
+++-    OK '21 close-out rename -> diff in archive, no active stub (fix B)'
++++  if ($diffInArchive -eq 0 -and $diffInActive -eq 0 -and -not $activeDirExists) {
++++    OK '21 close-out rename: no diff written, no active stub'
+++   } else {
+++-    BAD "21 close-out rename (diffInArchive=$diffInArchive activeDirExists=$activeDirExists)"
++++    BAD "21 close-out rename (diffInArchive=$diffInArchive diffInActive=$diffInActive activeDirExists=$activeDirExists)"
+++   }
+++ 
+++-  # 22. Active-exists routing.
++++  # 22. Active exists already from earlier in the task. The hook must not
++++  #     add a diff snapshot to it.
+++   Init-Repo
+++   New-Item -ItemType Directory -Path ai_coding/active/normal-task -Force | Out-Null
+++   'progress' | Out-File -Encoding ascii ai_coding/active/normal-task/PROGRESS.md
+++@@ -342,23 +356,26 @@ Write-Host "pre-commit cases:"
+++   'edit' | Out-File -Encoding ascii note.txt
+++   & git add note.txt | Out-Null
+++   & git commit -q --no-verify -m "scratch`n`nAI-Verdict: PASS`nAI-Task: normal-task" | Out-Null
+++-  $diffInActive = @(Get-ChildItem -Path ai_coding/active/normal-task -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
+++-  if ($diffInActive -ge 1) {
+++-    OK '22 routing: active exists -> diff in active'
++++  $diffInActive = Count-DiffPatches 'ai_coding/active/normal-task'
++++  if ($diffInActive -eq 0) {
++++    OK '22 active exists: no diff written'
+++   } else {
+++-    BAD "22 routing: active exists (diffInActive=$diffInActive)"
++++    BAD "22 active exists (diffInActive=$diffInActive)"
+++   }
+++ 
+++-  # 23. Fallback: neither.
++++  # 23. Neither active/<task>/ nor archive/<task>/ exists. The hook must
++++  #     not create an active stub or write any diff snapshot.
+++   Init-Repo
+++   'edit' | Out-File -Encoding ascii note.txt
+++   & git add note.txt | Out-Null
+++   & git commit -q --no-verify -m "scratch`n`nAI-Verdict: PASS`nAI-Task: brand-new-task" | Out-Null
+++-  $diffInActive = @(Get-ChildItem -Path ai_coding/active/brand-new-task -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
+++-  if ($diffInActive -ge 1) {
+++-    OK '23 routing: neither exists -> fallback to active'
++++  $diffInActive    = Count-DiffPatches 'ai_coding/active/brand-new-task'
++++  $diffInArchive   = Count-DiffPatches 'ai_coding/archive/brand-new-task'
++++  $activeDirExists = Test-Path -LiteralPath ai_coding/active/brand-new-task
++++  if ($diffInActive -eq 0 -and $diffInArchive -eq 0 -and -not $activeDirExists) {
++++    OK '23 neither exists: no stub created, no diff written'
+++   } else {
+++-    BAD "23 routing: neither (diffInActive=$diffInActive)"
++++    BAD "23 neither exists (diffInActive=$diffInActive diffInArchive=$diffInArchive activeDirExists=$activeDirExists)"
+++   }
+++ 
+++ Write-Host ""
+++diff --git a/tools/hooks-selftest.sh b/tools/hooks-selftest.sh
+++index 6aaf9c7..5236ace 100755
+++--- a/tools/hooks-selftest.sh
++++++ b/tools/hooks-selftest.sh
+++@@ -1,7 +1,8 @@
+++ #!/usr/bin/env bash
+++ # hooks-selftest.sh: exercise tools/hooks/{pre-commit,commit-msg,post-commit}
+++ # against synthetic staged sets in a temp git repo. Asserts each rejection
+++-# branch of pre-commit and pins the post-commit tri-branch routing fix.
++++# branch of pre-commit and pins the post-commit contract that it writes
++++# no diff_*.patch snapshots and creates no active task stubs.
+++ #
+++ # Standalone: does not require pytest or any project dependency.
+++ # Run via:  bash tools/hooks-selftest.sh
+++@@ -290,13 +291,24 @@ write_msg msg.txt archive-oldtask3 PASS
+++ expect_msg_pass msg.txt "19 close-out commit-msg accepts with bare trailers"
+++ 
+++ # =============================================================================
+++-# POST-COMMIT TEST CASES: the heart of fix B.
++++# POST-COMMIT TEST CASES: contract is that the hook writes no diff_*.patch
++++# snapshots and creates no active task stubs, in every routing scenario.
+++ # =============================================================================
+++ printf 'post-commit cases:\n'
+++ 
+++-# 20. Archive-only routing: archive/<task>/ exists, active/<task>/ does not.
+++-#     A subsequent commit with AI-Task: <task> must NOT recreate an active
+++-#     stub: diff must land in archive/<task>/.
++++# Count diff_*.patch files under a directory (0 if dir missing). Used by every
++++# case below. `find -maxdepth 1` keeps each assertion local to the named dir.
++++count_diff_patches() {
++++  if [ ! -d "$1" ]; then
++++    printf '0'
++++    return
++++  fi
++++  find "$1" -maxdepth 1 -name 'diff_*.patch' 2>/dev/null | wc -l | tr -d ' '
++++}
++++
++++# 20. Archive-only: archive/<task>/ exists, active/<task>/ does not. A commit
++++#     with AI-Task: <task> must not write any diff snapshot, anywhere, and
++++#     must not create an active stub.
+++ init_repo
+++ mkdir -p ai_coding/archive/already-archived
+++ printf 'old\n' > ai_coding/archive/already-archived/PROGRESS.md
+++@@ -308,17 +320,18 @@ git commit -q --no-verify -m "scratch
+++ 
+++ AI-Verdict: PASS
+++ AI-Task: already-archived"
+++-diff_in_archive=$(ls ai_coding/archive/already-archived/diff_*.patch 2>/dev/null | wc -l)
++++diff_in_archive=$(count_diff_patches ai_coding/archive/already-archived)
++++diff_in_active=$(count_diff_patches ai_coding/active/already-archived)
+++ active_dir_exists=0
+++ [ -d ai_coding/active/already-archived ] && active_dir_exists=1
+++-if [ "$diff_in_archive" -ge 1 ] && [ "$active_dir_exists" -eq 0 ]; then
+++-  ok "20 routing: archive-only → diff in archive, no active stub"
++++if [ "$diff_in_archive" -eq 0 ] && [ "$diff_in_active" -eq 0 ] && [ "$active_dir_exists" -eq 0 ]; then
++++  ok "20 archive-only: no diff written, no active stub"
+++ else
+++-  bad "20 routing: archive-only (diff_in_archive=$diff_in_archive active_dir_exists=$active_dir_exists)"
++++  bad "20 archive-only (diff_in_archive=$diff_in_archive diff_in_active=$diff_in_active active_dir_exists=$active_dir_exists)"
+++ fi
+++ 
+++-# 21. CRITICAL: close-out commit (rename active/x → archive/x) → routes to
+++-#     archive/x, NOT active/x. Pins fix B against regression.
++++# 21. Close-out: rename active/x → archive/x then commit with AI-Task: x.
++++#     Must not write a diff snapshot or recreate the active stub.
+++ init_repo
+++ mkdir -p ai_coding/active/closing-task
+++ printf 'progress\n' > ai_coding/active/closing-task/PROGRESS.md
+++@@ -329,16 +342,18 @@ git commit -q --no-verify -m "close out closing-task
+++ 
+++ AI-Verdict: PASS
+++ AI-Task: closing-task"
+++-diff_in_archive=$(ls ai_coding/archive/closing-task/diff_*.patch 2>/dev/null | wc -l)
++++diff_in_archive=$(count_diff_patches ai_coding/archive/closing-task)
++++diff_in_active=$(count_diff_patches ai_coding/active/closing-task)
+++ active_dir_exists=0
+++ [ -d ai_coding/active/closing-task ] && active_dir_exists=1
+++-if [ "$diff_in_archive" -ge 1 ] && [ "$active_dir_exists" -eq 0 ]; then
+++-  ok "21 close-out rename → diff in archive, no active stub (fix B)"
++++if [ "$diff_in_archive" -eq 0 ] && [ "$diff_in_active" -eq 0 ] && [ "$active_dir_exists" -eq 0 ]; then
++++  ok "21 close-out rename: no diff written, no active stub"
+++ else
+++-  bad "21 close-out rename (diff_in_archive=$diff_in_archive active_dir_exists=$active_dir_exists)"
++++  bad "21 close-out rename (diff_in_archive=$diff_in_archive diff_in_active=$diff_in_active active_dir_exists=$active_dir_exists)"
+++ fi
+++ 
+++-# 22. Active-exists routing: standard case.
++++# 22. Active exists: active/<task>/ already there from earlier in the task.
++++#     The hook must not add a diff snapshot to it.
+++ init_repo
+++ mkdir -p ai_coding/active/normal-task
+++ printf 'progress\n' > ai_coding/active/normal-task/PROGRESS.md
+++@@ -350,14 +365,15 @@ git commit -q --no-verify -m "scratch
+++ 
+++ AI-Verdict: PASS
+++ AI-Task: normal-task"
+++-diff_in_active=$(ls ai_coding/active/normal-task/diff_*.patch 2>/dev/null | wc -l)
+++-if [ "$diff_in_active" -ge 1 ]; then
+++-  ok "22 routing: active exists → diff in active"
++++diff_in_active=$(count_diff_patches ai_coding/active/normal-task)
++++if [ "$diff_in_active" -eq 0 ]; then
++++  ok "22 active exists: no diff written"
+++ else
+++-  bad "22 routing: active exists (diff_in_active=$diff_in_active)"
++++  bad "22 active exists (diff_in_active=$diff_in_active)"
+++ fi
+++ 
+++-# 23. Fallback routing: neither active/<task>/ nor archive/<task>/ exists.
++++# 23. Neither active/<task>/ nor archive/<task>/ exists. The hook must not
++++#     create an active stub or write any diff snapshot.
+++ init_repo
+++ printf 'edit\n' > note.txt
+++ git add note.txt
+++@@ -365,11 +381,14 @@ git commit -q --no-verify -m "scratch
+++ 
+++ AI-Verdict: PASS
+++ AI-Task: brand-new-task"
+++-diff_in_active=$(ls ai_coding/active/brand-new-task/diff_*.patch 2>/dev/null | wc -l)
+++-if [ "$diff_in_active" -ge 1 ]; then
+++-  ok "23 routing: neither exists → fallback to active"
++++diff_in_active=$(count_diff_patches ai_coding/active/brand-new-task)
++++diff_in_archive=$(count_diff_patches ai_coding/archive/brand-new-task)
++++active_dir_exists=0
++++[ -d ai_coding/active/brand-new-task ] && active_dir_exists=1
++++if [ "$diff_in_active" -eq 0 ] && [ "$diff_in_archive" -eq 0 ] && [ "$active_dir_exists" -eq 0 ]; then
++++  ok "23 neither exists: no stub created, no diff written"
+++ else
+++-  bad "23 routing: neither exists (diff_in_active=$diff_in_active)"
++++  bad "23 neither exists (diff_in_active=$diff_in_active diff_in_archive=$diff_in_archive active_dir_exists=$active_dir_exists)"
+++ fi
+++ 
+++ # =============================================================================
+++diff --git a/tools/hooks/post-commit b/tools/hooks/post-commit
+++index 2fe9e34..49dafee 100755
+++--- a/tools/hooks/post-commit
++++++ b/tools/hooks/post-commit
+++@@ -1,18 +1,7 @@
+++ #!/usr/bin/env sh
+++-# post-commit — route the just-committed diff using the AI-Task trailer.
+++-#
+++-# Migrated from .git/hooks/post-commit into version control. While moving,
+++-# fixed routing bug B: the original unconditionally re-created
+++-# ai_coding/active/<task>/ even when the task folder had already been moved
+++-# to ai_coding/archive/<task>/, leaving an empty active stub on every
+++-# close-out commit (e.g. cbacfc2 on chore/archive-commit-msg-trailer-hook).
+++-#
+++-# Tri-branch routing (replaces the buggy unconditional mkdir):
+++-#   1. ai_coding/active/<task>/  exists → route there.
+++-#   2. ai_coding/archive/<task>/ exists → route there.
+++-#   3. Neither → fall back to creating ai_coding/active/<task>/.
+++-# The hook's stated purpose is to follow the task folder wherever it
+++-# currently lives, NOT to pin every routed diff to active/.
++++# post-commit: parse the AI-Task / AI-Verdict trailers on the just-made
++++# commit, log commits missing the AI-Task trailer to ai_coding/UNROUTED.log,
++++# and fire a desktop notification. Writes nothing into the task folder.
+++ #
+++ # Constraints:
+++ #   * POSIX-sh safe (Git for Windows MSYS bash).
+++@@ -23,8 +12,6 @@ set -u
+++ 
+++ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+++ AI_DIR="$REPO_ROOT/ai_coding"
+++-ACTIVE_DIR="$AI_DIR/active"
+++-ARCHIVE_DIR="$AI_DIR/archive"
+++ UNROUTED_LOG="$AI_DIR/UNROUTED.log"
+++ mkdir -p "$AI_DIR" 2>/dev/null || true
+++ 
+++@@ -69,35 +56,11 @@ if [ -z "$TASK" ]; then
+++   exit 0
+++ fi
+++ 
+++-# --- Tri-branch routing (fix B). ---------------------------------------------
+++-if [ -d "$ACTIVE_DIR/$TASK" ]; then
+++-  TASK_DIR="$ACTIVE_DIR/$TASK"
+++-elif [ -d "$ARCHIVE_DIR/$TASK" ]; then
+++-  TASK_DIR="$ARCHIVE_DIR/$TASK"
+++-else
+++-  TASK_DIR="$ACTIVE_DIR/$TASK"
+++-  mkdir -p "$TASK_DIR" 2>/dev/null || true
+++-fi
+++-
+++-DIFF_FILE="$TASK_DIR/diff_${TS}_${SHORT}.patch"
+++-
+++-EMPTY_TREE="$(git hash-object -t tree /dev/null 2>/dev/null \
+++-              || printf '4b825dc642cb6eb9a060e54bf8d69288fbee4904')"
+++-if git rev-parse --verify -q HEAD~1 >/dev/null 2>&1; then
+++-  git diff HEAD~1 HEAD > "$DIFF_FILE" 2>/dev/null \
+++-    || printf '[%s] git diff failed for %s\n' "$TS" "$SHA" \
+++-         >> "$AI_DIR/notify.log"
+++-else
+++-  git diff "$EMPTY_TREE" HEAD > "$DIFF_FILE" 2>/dev/null \
+++-    || printf '[%s] first-commit diff failed for %s\n' "$TS" "$SHA" \
+++-         >> "$AI_DIR/notify.log"
+++-fi
+++-
+++ case "$VERDICT" in
+++   PASS|OVERRIDE|"")
+++-    fire_notify "Commit routed: $TASK" "$SHORT (${VERDICT:-no-verdict})" 0 ;;
++++    fire_notify "Commit recorded: $TASK" "$SHORT (${VERDICT:-no-verdict})" 0 ;;
+++   *)
+++-    fire_notify "Commit routed (unknown verdict)" \
++++    fire_notify "Commit recorded (unknown verdict)" \
+++       "Task '$TASK' commit $SHORT verdict='$VERDICT'" 1 ;;
+++ esac
+++ 
++diff --git a/ai_coding/active/drop-post-commit-diff-snapshots/disagreements.log b/ai_coding/active/drop-post-commit-diff-snapshots/disagreements.log
++new file mode 100644
++index 0000000..e69de29
++diff --git a/tools/hooks-selftest.ps1 b/tools/hooks-selftest.ps1
++index 3ba79d4..e2aff54 100644
++--- a/tools/hooks-selftest.ps1
+++++ b/tools/hooks-selftest.ps1
++@@ -1,6 +1,7 @@
++ # hooks-selftest.ps1 -- exercise tools/hooks/{pre-commit,commit-msg,post-commit}
++ # against synthetic staged sets in a temp git repo. Asserts each rejection
++-# branch of pre-commit and pins the post-commit tri-branch routing fix.
+++# branch of pre-commit and pins the post-commit contract that it writes
+++# no diff_*.patch snapshots and creates no active task stubs.
++ #
++ # The hooks themselves are POSIX-sh scripts (Git for Windows MSYS bash runs
++ # them). This script invokes them via git's own commit machinery (hooksPath)
++@@ -300,7 +301,16 @@ Write-Host "pre-commit cases:"
++ 
++   Write-Host "post-commit cases:"
++ 
++-  # 20. Archive-only routing.
+++  # Count diff_*.patch files under a directory (0 if dir missing). Local
+++  # helper so each assertion below is scoped to the named directory only.
+++  function Count-DiffPatches([string]$Path) {
+++    if (-not (Test-Path -LiteralPath $Path)) { return 0 }
+++    return @(Get-ChildItem -LiteralPath $Path -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
+++  }
+++
+++  # 20. Archive-only: archive/<task>/ exists, active/<task>/ does not. The
+++  #     post-commit hook must write no diff snapshot anywhere and must not
+++  #     create an active stub.
++   Init-Repo
++   New-Item -ItemType Directory -Path ai_coding/archive/already-archived -Force | Out-Null
++   'old' | Out-File -Encoding ascii ai_coding/archive/already-archived/PROGRESS.md
++@@ -309,15 +319,17 @@ Write-Host "pre-commit cases:"
++   'change' | Out-File -Encoding ascii scratch.txt
++   & git add scratch.txt | Out-Null
++   & git commit -q --no-verify -m "scratch`n`nAI-Verdict: PASS`nAI-Task: already-archived" | Out-Null
++-  $diffInArchive   = @(Get-ChildItem -Path ai_coding/archive/already-archived -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
+++  $diffInArchive   = Count-DiffPatches 'ai_coding/archive/already-archived'
+++  $diffInActive    = Count-DiffPatches 'ai_coding/active/already-archived'
++   $activeDirExists = Test-Path -LiteralPath ai_coding/active/already-archived
++-  if ($diffInArchive -ge 1 -and -not $activeDirExists) {
++-    OK '20 routing: archive-only -> diff in archive, no active stub'
+++  if ($diffInArchive -eq 0 -and $diffInActive -eq 0 -and -not $activeDirExists) {
+++    OK '20 archive-only: no diff written, no active stub'
++   } else {
++-    BAD "20 routing: archive-only (diffInArchive=$diffInArchive activeDirExists=$activeDirExists)"
+++    BAD "20 archive-only (diffInArchive=$diffInArchive diffInActive=$diffInActive activeDirExists=$activeDirExists)"
++   }
++ 
++-  # 21. CRITICAL: close-out rename -- fix B regression pin.
+++  # 21. Close-out: rename active/x -> archive/x then commit with AI-Task: x.
+++  #     Must not write a diff snapshot or recreate the active stub.
++   Init-Repo
++   New-Item -ItemType Directory -Path ai_coding/active/closing-task -Force | Out-Null
++   'progress' | Out-File -Encoding ascii ai_coding/active/closing-task/PROGRESS.md
++@@ -325,15 +337,17 @@ Write-Host "pre-commit cases:"
++   & git commit -q --no-verify -m 'set up closing-task' | Out-Null
++   Closeout-Rename 'closing-task'
++   & git commit -q --no-verify -m "close out`n`nAI-Verdict: PASS`nAI-Task: closing-task" | Out-Null
++-  $diffInArchive   = @(Get-ChildItem -Path ai_coding/archive/closing-task -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
+++  $diffInArchive   = Count-DiffPatches 'ai_coding/archive/closing-task'
+++  $diffInActive    = Count-DiffPatches 'ai_coding/active/closing-task'
++   $activeDirExists = Test-Path -LiteralPath ai_coding/active/closing-task
++-  if ($diffInArchive -ge 1 -and -not $activeDirExists) {
++-    OK '21 close-out rename -> diff in archive, no active stub (fix B)'
+++  if ($diffInArchive -eq 0 -and $diffInActive -eq 0 -and -not $activeDirExists) {
+++    OK '21 close-out rename: no diff written, no active stub'
++   } else {
++-    BAD "21 close-out rename (diffInArchive=$diffInArchive activeDirExists=$activeDirExists)"
+++    BAD "21 close-out rename (diffInArchive=$diffInArchive diffInActive=$diffInActive activeDirExists=$activeDirExists)"
++   }
++ 
++-  # 22. Active-exists routing.
+++  # 22. Active exists already from earlier in the task. The hook must not
+++  #     add a diff snapshot to it.
++   Init-Repo
++   New-Item -ItemType Directory -Path ai_coding/active/normal-task -Force | Out-Null
++   'progress' | Out-File -Encoding ascii ai_coding/active/normal-task/PROGRESS.md
++@@ -342,23 +356,26 @@ Write-Host "pre-commit cases:"
++   'edit' | Out-File -Encoding ascii note.txt
++   & git add note.txt | Out-Null
++   & git commit -q --no-verify -m "scratch`n`nAI-Verdict: PASS`nAI-Task: normal-task" | Out-Null
++-  $diffInActive = @(Get-ChildItem -Path ai_coding/active/normal-task -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
++-  if ($diffInActive -ge 1) {
++-    OK '22 routing: active exists -> diff in active'
+++  $diffInActive = Count-DiffPatches 'ai_coding/active/normal-task'
+++  if ($diffInActive -eq 0) {
+++    OK '22 active exists: no diff written'
++   } else {
++-    BAD "22 routing: active exists (diffInActive=$diffInActive)"
+++    BAD "22 active exists (diffInActive=$diffInActive)"
++   }
++ 
++-  # 23. Fallback: neither.
+++  # 23. Neither active/<task>/ nor archive/<task>/ exists. The hook must
+++  #     not create an active stub or write any diff snapshot.
++   Init-Repo
++   'edit' | Out-File -Encoding ascii note.txt
++   & git add note.txt | Out-Null
++   & git commit -q --no-verify -m "scratch`n`nAI-Verdict: PASS`nAI-Task: brand-new-task" | Out-Null
++-  $diffInActive = @(Get-ChildItem -Path ai_coding/active/brand-new-task -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
++-  if ($diffInActive -ge 1) {
++-    OK '23 routing: neither exists -> fallback to active'
+++  $diffInActive    = Count-DiffPatches 'ai_coding/active/brand-new-task'
+++  $diffInArchive   = Count-DiffPatches 'ai_coding/archive/brand-new-task'
+++  $activeDirExists = Test-Path -LiteralPath ai_coding/active/brand-new-task
+++  if ($diffInActive -eq 0 -and $diffInArchive -eq 0 -and -not $activeDirExists) {
+++    OK '23 neither exists: no stub created, no diff written'
++   } else {
++-    BAD "23 routing: neither (diffInActive=$diffInActive)"
+++    BAD "23 neither exists (diffInActive=$diffInActive diffInArchive=$diffInArchive activeDirExists=$activeDirExists)"
++   }
++ 
++ Write-Host ""
++diff --git a/tools/hooks-selftest.sh b/tools/hooks-selftest.sh
++index 6aaf9c7..5236ace 100755
++--- a/tools/hooks-selftest.sh
+++++ b/tools/hooks-selftest.sh
++@@ -1,7 +1,8 @@
++ #!/usr/bin/env bash
++ # hooks-selftest.sh: exercise tools/hooks/{pre-commit,commit-msg,post-commit}
++ # against synthetic staged sets in a temp git repo. Asserts each rejection
++-# branch of pre-commit and pins the post-commit tri-branch routing fix.
+++# branch of pre-commit and pins the post-commit contract that it writes
+++# no diff_*.patch snapshots and creates no active task stubs.
++ #
++ # Standalone: does not require pytest or any project dependency.
++ # Run via:  bash tools/hooks-selftest.sh
++@@ -290,13 +291,24 @@ write_msg msg.txt archive-oldtask3 PASS
++ expect_msg_pass msg.txt "19 close-out commit-msg accepts with bare trailers"
++ 
++ # =============================================================================
++-# POST-COMMIT TEST CASES: the heart of fix B.
+++# POST-COMMIT TEST CASES: contract is that the hook writes no diff_*.patch
+++# snapshots and creates no active task stubs, in every routing scenario.
++ # =============================================================================
++ printf 'post-commit cases:\n'
++ 
++-# 20. Archive-only routing: archive/<task>/ exists, active/<task>/ does not.
++-#     A subsequent commit with AI-Task: <task> must NOT recreate an active
++-#     stub: diff must land in archive/<task>/.
+++# Count diff_*.patch files under a directory (0 if dir missing). Used by every
+++# case below. `find -maxdepth 1` keeps each assertion local to the named dir.
+++count_diff_patches() {
+++  if [ ! -d "$1" ]; then
+++    printf '0'
+++    return
+++  fi
+++  find "$1" -maxdepth 1 -name 'diff_*.patch' 2>/dev/null | wc -l | tr -d ' '
+++}
+++
+++# 20. Archive-only: archive/<task>/ exists, active/<task>/ does not. A commit
+++#     with AI-Task: <task> must not write any diff snapshot, anywhere, and
+++#     must not create an active stub.
++ init_repo
++ mkdir -p ai_coding/archive/already-archived
++ printf 'old\n' > ai_coding/archive/already-archived/PROGRESS.md
++@@ -308,17 +320,18 @@ git commit -q --no-verify -m "scratch
++ 
++ AI-Verdict: PASS
++ AI-Task: already-archived"
++-diff_in_archive=$(ls ai_coding/archive/already-archived/diff_*.patch 2>/dev/null | wc -l)
+++diff_in_archive=$(count_diff_patches ai_coding/archive/already-archived)
+++diff_in_active=$(count_diff_patches ai_coding/active/already-archived)
++ active_dir_exists=0
++ [ -d ai_coding/active/already-archived ] && active_dir_exists=1
++-if [ "$diff_in_archive" -ge 1 ] && [ "$active_dir_exists" -eq 0 ]; then
++-  ok "20 routing: archive-only → diff in archive, no active stub"
+++if [ "$diff_in_archive" -eq 0 ] && [ "$diff_in_active" -eq 0 ] && [ "$active_dir_exists" -eq 0 ]; then
+++  ok "20 archive-only: no diff written, no active stub"
++ else
++-  bad "20 routing: archive-only (diff_in_archive=$diff_in_archive active_dir_exists=$active_dir_exists)"
+++  bad "20 archive-only (diff_in_archive=$diff_in_archive diff_in_active=$diff_in_active active_dir_exists=$active_dir_exists)"
++ fi
++ 
++-# 21. CRITICAL: close-out commit (rename active/x → archive/x) → routes to
++-#     archive/x, NOT active/x. Pins fix B against regression.
+++# 21. Close-out: rename active/x → archive/x then commit with AI-Task: x.
+++#     Must not write a diff snapshot or recreate the active stub.
++ init_repo
++ mkdir -p ai_coding/active/closing-task
++ printf 'progress\n' > ai_coding/active/closing-task/PROGRESS.md
++@@ -329,16 +342,18 @@ git commit -q --no-verify -m "close out closing-task
++ 
++ AI-Verdict: PASS
++ AI-Task: closing-task"
++-diff_in_archive=$(ls ai_coding/archive/closing-task/diff_*.patch 2>/dev/null | wc -l)
+++diff_in_archive=$(count_diff_patches ai_coding/archive/closing-task)
+++diff_in_active=$(count_diff_patches ai_coding/active/closing-task)
++ active_dir_exists=0
++ [ -d ai_coding/active/closing-task ] && active_dir_exists=1
++-if [ "$diff_in_archive" -ge 1 ] && [ "$active_dir_exists" -eq 0 ]; then
++-  ok "21 close-out rename → diff in archive, no active stub (fix B)"
+++if [ "$diff_in_archive" -eq 0 ] && [ "$diff_in_active" -eq 0 ] && [ "$active_dir_exists" -eq 0 ]; then
+++  ok "21 close-out rename: no diff written, no active stub"
++ else
++-  bad "21 close-out rename (diff_in_archive=$diff_in_archive active_dir_exists=$active_dir_exists)"
+++  bad "21 close-out rename (diff_in_archive=$diff_in_archive diff_in_active=$diff_in_active active_dir_exists=$active_dir_exists)"
++ fi
++ 
++-# 22. Active-exists routing: standard case.
+++# 22. Active exists: active/<task>/ already there from earlier in the task.
+++#     The hook must not add a diff snapshot to it.
++ init_repo
++ mkdir -p ai_coding/active/normal-task
++ printf 'progress\n' > ai_coding/active/normal-task/PROGRESS.md
++@@ -350,14 +365,15 @@ git commit -q --no-verify -m "scratch
++ 
++ AI-Verdict: PASS
++ AI-Task: normal-task"
++-diff_in_active=$(ls ai_coding/active/normal-task/diff_*.patch 2>/dev/null | wc -l)
++-if [ "$diff_in_active" -ge 1 ]; then
++-  ok "22 routing: active exists → diff in active"
+++diff_in_active=$(count_diff_patches ai_coding/active/normal-task)
+++if [ "$diff_in_active" -eq 0 ]; then
+++  ok "22 active exists: no diff written"
++ else
++-  bad "22 routing: active exists (diff_in_active=$diff_in_active)"
+++  bad "22 active exists (diff_in_active=$diff_in_active)"
++ fi
++ 
++-# 23. Fallback routing: neither active/<task>/ nor archive/<task>/ exists.
+++# 23. Neither active/<task>/ nor archive/<task>/ exists. The hook must not
+++#     create an active stub or write any diff snapshot.
++ init_repo
++ printf 'edit\n' > note.txt
++ git add note.txt
++@@ -365,11 +381,14 @@ git commit -q --no-verify -m "scratch
++ 
++ AI-Verdict: PASS
++ AI-Task: brand-new-task"
++-diff_in_active=$(ls ai_coding/active/brand-new-task/diff_*.patch 2>/dev/null | wc -l)
++-if [ "$diff_in_active" -ge 1 ]; then
++-  ok "23 routing: neither exists → fallback to active"
+++diff_in_active=$(count_diff_patches ai_coding/active/brand-new-task)
+++diff_in_archive=$(count_diff_patches ai_coding/archive/brand-new-task)
+++active_dir_exists=0
+++[ -d ai_coding/active/brand-new-task ] && active_dir_exists=1
+++if [ "$diff_in_active" -eq 0 ] && [ "$diff_in_archive" -eq 0 ] && [ "$active_dir_exists" -eq 0 ]; then
+++  ok "23 neither exists: no stub created, no diff written"
++ else
++-  bad "23 routing: neither exists (diff_in_active=$diff_in_active)"
+++  bad "23 neither exists (diff_in_active=$diff_in_active diff_in_archive=$diff_in_archive active_dir_exists=$active_dir_exists)"
++ fi
++ 
++ # =============================================================================
++diff --git a/tools/hooks/post-commit b/tools/hooks/post-commit
++index 2fe9e34..49dafee 100755
++--- a/tools/hooks/post-commit
+++++ b/tools/hooks/post-commit
++@@ -1,18 +1,7 @@
++ #!/usr/bin/env sh
++-# post-commit — route the just-committed diff using the AI-Task trailer.
++-#
++-# Migrated from .git/hooks/post-commit into version control. While moving,
++-# fixed routing bug B: the original unconditionally re-created
++-# ai_coding/active/<task>/ even when the task folder had already been moved
++-# to ai_coding/archive/<task>/, leaving an empty active stub on every
++-# close-out commit (e.g. cbacfc2 on chore/archive-commit-msg-trailer-hook).
++-#
++-# Tri-branch routing (replaces the buggy unconditional mkdir):
++-#   1. ai_coding/active/<task>/  exists → route there.
++-#   2. ai_coding/archive/<task>/ exists → route there.
++-#   3. Neither → fall back to creating ai_coding/active/<task>/.
++-# The hook's stated purpose is to follow the task folder wherever it
++-# currently lives, NOT to pin every routed diff to active/.
+++# post-commit: parse the AI-Task / AI-Verdict trailers on the just-made
+++# commit, log commits missing the AI-Task trailer to ai_coding/UNROUTED.log,
+++# and fire a desktop notification. Writes nothing into the task folder.
++ #
++ # Constraints:
++ #   * POSIX-sh safe (Git for Windows MSYS bash).
++@@ -23,8 +12,6 @@ set -u
++ 
++ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
++ AI_DIR="$REPO_ROOT/ai_coding"
++-ACTIVE_DIR="$AI_DIR/active"
++-ARCHIVE_DIR="$AI_DIR/archive"
++ UNROUTED_LOG="$AI_DIR/UNROUTED.log"
++ mkdir -p "$AI_DIR" 2>/dev/null || true
++ 
++@@ -69,35 +56,11 @@ if [ -z "$TASK" ]; then
++   exit 0
++ fi
++ 
++-# --- Tri-branch routing (fix B). ---------------------------------------------
++-if [ -d "$ACTIVE_DIR/$TASK" ]; then
++-  TASK_DIR="$ACTIVE_DIR/$TASK"
++-elif [ -d "$ARCHIVE_DIR/$TASK" ]; then
++-  TASK_DIR="$ARCHIVE_DIR/$TASK"
++-else
++-  TASK_DIR="$ACTIVE_DIR/$TASK"
++-  mkdir -p "$TASK_DIR" 2>/dev/null || true
++-fi
++-
++-DIFF_FILE="$TASK_DIR/diff_${TS}_${SHORT}.patch"
++-
++-EMPTY_TREE="$(git hash-object -t tree /dev/null 2>/dev/null \
++-              || printf '4b825dc642cb6eb9a060e54bf8d69288fbee4904')"
++-if git rev-parse --verify -q HEAD~1 >/dev/null 2>&1; then
++-  git diff HEAD~1 HEAD > "$DIFF_FILE" 2>/dev/null \
++-    || printf '[%s] git diff failed for %s\n' "$TS" "$SHA" \
++-         >> "$AI_DIR/notify.log"
++-else
++-  git diff "$EMPTY_TREE" HEAD > "$DIFF_FILE" 2>/dev/null \
++-    || printf '[%s] first-commit diff failed for %s\n' "$TS" "$SHA" \
++-         >> "$AI_DIR/notify.log"
++-fi
++-
++ case "$VERDICT" in
++   PASS|OVERRIDE|"")
++-    fire_notify "Commit routed: $TASK" "$SHORT (${VERDICT:-no-verdict})" 0 ;;
+++    fire_notify "Commit recorded: $TASK" "$SHORT (${VERDICT:-no-verdict})" 0 ;;
++   *)
++-    fire_notify "Commit routed (unknown verdict)" \
+++    fire_notify "Commit recorded (unknown verdict)" \
++       "Task '$TASK' commit $SHORT verdict='$VERDICT'" 1 ;;
++ esac
++ 
+diff --git a/ai_coding/active/drop-post-commit-diff-snapshots/disagreements.log b/ai_coding/active/drop-post-commit-diff-snapshots/disagreements.log
+new file mode 100644
+index 0000000..e69de29
+diff --git a/ai_coding/active/drop-post-commit-diff-snapshots/review.md b/ai_coding/active/drop-post-commit-diff-snapshots/review.md
+new file mode 100644
+index 0000000..795d219
+--- /dev/null
++++ b/ai_coding/active/drop-post-commit-diff-snapshots/review.md
+@@ -0,0 +1,111 @@
++# Deep Review: drop-post-commit-diff-snapshots
++
++## Scope
++
++Six tracked file changes (plus the §2 artifacts for this task):
++
++- `tools/hooks/post-commit`: dropped the routing block (TASK_DIR
++  tri-branch, mkdir fallback) and the diff-write block
++  (DIFF_FILE, EMPTY_TREE, `git diff > DIFF_FILE`). Kept trailer
++  parsing, UNROUTED.log entry for commits missing AI-Task, and
++  `fire_notify`. Header rewritten as a factual statement.
++- `tools/hooks-selftest.sh` and `.ps1`: cases 20-23 rewritten to
++  assert the new contract (no `diff_*.patch` written, no active
++  stub created) under all four routing scenarios. New helpers
++  `count_diff_patches` / `Count-DiffPatches` centralize the count.
++  Header comments updated.
++- `.gitignore`: removed the now-dead `ai_coding/**/diff_*_*.patch`
++  rule.
++- `CLAUDE.md` §8: rewritten as a factual description matching the
++  new hook responsibility. No backward-looking justification prose.
++
++37 orphan `diff_*_*.patch` files were physically removed from
++ai_coding/{active,archive}/ as a one-shot local cleanup. They were
++untracked locally and never entered git, so the deletion is invisible
++in the commit diff.
++
++## Findings
++
++### Correctness
++
++- Hook trailer parsing is unchanged: same `grep -E '^AI-Task:'` and
++  `grep -E '^AI-Verdict:'` logic, same `tr -d '\r'` for CRLF safety,
++  same `head -1` to pick the first match.
++- Missing-trailer path is preserved: UNROUTED.log append + urgent
++  notify + exit 0, identical semantics.
++- `fire_notify` is unchanged: same python lookup, same fire-and-forget
++  background invocation, same notify.log fallback when python is
++  missing.
++- Removed code had two visible effects that are now gone:
++  1. Writing `diff_<ts>_<sha>.patch` into the task folder.
++  2. Creating `ai_coding/active/<task>/` as a side effect on commits
++     whose task folder didn't exist on disk.
++
++  Effect (1) is the explicit goal of this change. Effect (2) was a
++  silent fallback that could only fire when a commit reached
++  post-commit despite (a) lacking a §2 task folder and (b) having a
++  valid `AI-Task:` trailer. The pre-commit hook already rejects such
++  commits when CLAUDE.md §2 is followed; the only way through is
++  `--no-verify`, which is already off-pipeline. Removing the silent
++  fallback is appropriate: an off-pipeline bypass commit does not
++  deserve a forensic stub created for it.
++
++### Selftest assertions
++
++- All four post-commit cases (20-23) now check: zero `diff_*.patch`
++  in both active and archive task dirs AND no active stub directory.
++  This is stronger than the old assertions (the old test only
++  checked one side of the routing decision per case).
++- Glob `diff_*.patch` is intentional: matches the snapshot pattern
++  (`diff_<ts>_<sha>.patch`) but not the canonical `diff.patch`
++  artifact, because the latter has no underscore after `diff`.
++  Verified the canonical artifact wouldn't be miscounted.
++- Bash helper uses `find -maxdepth 1 -name 'diff_*.patch' | wc -l |
++  tr -d ' '`. MSYS `find` on Git for Windows supports both flags;
++  `tr -d ' '` strips the leading whitespace `wc -l` emits on MSYS,
++  which would otherwise cause the numeric `-eq` comparison to fail.
++  The selftest runs green on both bash and PowerShell, confirming
++  this.
++- PowerShell helper uses `Get-ChildItem -Filter 'diff_*.patch'`. The
++  -Filter literal-underscore semantics match the bash glob.
++
++### Gitignore removal
++
++The dead rule `ai_coding/**/diff_*_*.patch` is removed. Verified that
++no other producer in the live tree writes files matching this
++pattern: the only grep matches are inside historical diff.patch
++artifact snapshots (themselves containing the now-removed hook
++source) and `archived/reviewer.py`, which is deprecated and not
++imported anywhere. Future commits cannot accidentally re-introduce
++ignored snapshots through this path.
++
++### CLAUDE.md §8
++
++Rewritten as a factual statement of what the hook does. No
++backward-looking "earlier did X, now Y because Z" prose. Matches the
++new hook header style.
++
++### Documentation
++
++PROGRESS.md updated to reflect the actual final state: orphan
++physical cleanup happened, all tests green, deep review concluded.
++No forward-references to artifacts not yet produced.
++
++## Bugs / Defects
++
++None.
++
++## Security
++
++Hook surface shrank. No new shell expansions, no new file writes, no
++new external calls. Notification payload still derives from
++trailer-extracted strings which have been through the same `tr -d
++'\r'` normalization as before. No new injection vectors.
++
++## Tests
++
++- hooks-selftest.sh: 31 passed, 0 failed.
++- hooks-selftest.ps1: 31 passed, 0 failed.
++- uv run pytest: 37 passed, 0 failed.
++
++VERDICT: PASS
+diff --git a/tools/hooks-selftest.ps1 b/tools/hooks-selftest.ps1
+index 3ba79d4..e2aff54 100644
+--- a/tools/hooks-selftest.ps1
++++ b/tools/hooks-selftest.ps1
+@@ -1,6 +1,7 @@
+ # hooks-selftest.ps1 -- exercise tools/hooks/{pre-commit,commit-msg,post-commit}
+ # against synthetic staged sets in a temp git repo. Asserts each rejection
+-# branch of pre-commit and pins the post-commit tri-branch routing fix.
++# branch of pre-commit and pins the post-commit contract that it writes
++# no diff_*.patch snapshots and creates no active task stubs.
+ #
+ # The hooks themselves are POSIX-sh scripts (Git for Windows MSYS bash runs
+ # them). This script invokes them via git's own commit machinery (hooksPath)
+@@ -300,7 +301,16 @@ Write-Host "pre-commit cases:"
+ 
+   Write-Host "post-commit cases:"
+ 
+-  # 20. Archive-only routing.
++  # Count diff_*.patch files under a directory (0 if dir missing). Local
++  # helper so each assertion below is scoped to the named directory only.
++  function Count-DiffPatches([string]$Path) {
++    if (-not (Test-Path -LiteralPath $Path)) { return 0 }
++    return @(Get-ChildItem -LiteralPath $Path -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
++  }
++
++  # 20. Archive-only: archive/<task>/ exists, active/<task>/ does not. The
++  #     post-commit hook must write no diff snapshot anywhere and must not
++  #     create an active stub.
+   Init-Repo
+   New-Item -ItemType Directory -Path ai_coding/archive/already-archived -Force | Out-Null
+   'old' | Out-File -Encoding ascii ai_coding/archive/already-archived/PROGRESS.md
+@@ -309,15 +319,17 @@ Write-Host "pre-commit cases:"
+   'change' | Out-File -Encoding ascii scratch.txt
+   & git add scratch.txt | Out-Null
+   & git commit -q --no-verify -m "scratch`n`nAI-Verdict: PASS`nAI-Task: already-archived" | Out-Null
+-  $diffInArchive   = @(Get-ChildItem -Path ai_coding/archive/already-archived -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
++  $diffInArchive   = Count-DiffPatches 'ai_coding/archive/already-archived'
++  $diffInActive    = Count-DiffPatches 'ai_coding/active/already-archived'
+   $activeDirExists = Test-Path -LiteralPath ai_coding/active/already-archived
+-  if ($diffInArchive -ge 1 -and -not $activeDirExists) {
+-    OK '20 routing: archive-only -> diff in archive, no active stub'
++  if ($diffInArchive -eq 0 -and $diffInActive -eq 0 -and -not $activeDirExists) {
++    OK '20 archive-only: no diff written, no active stub'
+   } else {
+-    BAD "20 routing: archive-only (diffInArchive=$diffInArchive activeDirExists=$activeDirExists)"
++    BAD "20 archive-only (diffInArchive=$diffInArchive diffInActive=$diffInActive activeDirExists=$activeDirExists)"
+   }
+ 
+-  # 21. CRITICAL: close-out rename -- fix B regression pin.
++  # 21. Close-out: rename active/x -> archive/x then commit with AI-Task: x.
++  #     Must not write a diff snapshot or recreate the active stub.
+   Init-Repo
+   New-Item -ItemType Directory -Path ai_coding/active/closing-task -Force | Out-Null
+   'progress' | Out-File -Encoding ascii ai_coding/active/closing-task/PROGRESS.md
+@@ -325,15 +337,17 @@ Write-Host "pre-commit cases:"
+   & git commit -q --no-verify -m 'set up closing-task' | Out-Null
+   Closeout-Rename 'closing-task'
+   & git commit -q --no-verify -m "close out`n`nAI-Verdict: PASS`nAI-Task: closing-task" | Out-Null
+-  $diffInArchive   = @(Get-ChildItem -Path ai_coding/archive/closing-task -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
++  $diffInArchive   = Count-DiffPatches 'ai_coding/archive/closing-task'
++  $diffInActive    = Count-DiffPatches 'ai_coding/active/closing-task'
+   $activeDirExists = Test-Path -LiteralPath ai_coding/active/closing-task
+-  if ($diffInArchive -ge 1 -and -not $activeDirExists) {
+-    OK '21 close-out rename -> diff in archive, no active stub (fix B)'
++  if ($diffInArchive -eq 0 -and $diffInActive -eq 0 -and -not $activeDirExists) {
++    OK '21 close-out rename: no diff written, no active stub'
+   } else {
+-    BAD "21 close-out rename (diffInArchive=$diffInArchive activeDirExists=$activeDirExists)"
++    BAD "21 close-out rename (diffInArchive=$diffInArchive diffInActive=$diffInActive activeDirExists=$activeDirExists)"
+   }
+ 
+-  # 22. Active-exists routing.
++  # 22. Active exists already from earlier in the task. The hook must not
++  #     add a diff snapshot to it.
+   Init-Repo
+   New-Item -ItemType Directory -Path ai_coding/active/normal-task -Force | Out-Null
+   'progress' | Out-File -Encoding ascii ai_coding/active/normal-task/PROGRESS.md
+@@ -342,23 +356,26 @@ Write-Host "pre-commit cases:"
+   'edit' | Out-File -Encoding ascii note.txt
+   & git add note.txt | Out-Null
+   & git commit -q --no-verify -m "scratch`n`nAI-Verdict: PASS`nAI-Task: normal-task" | Out-Null
+-  $diffInActive = @(Get-ChildItem -Path ai_coding/active/normal-task -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
+-  if ($diffInActive -ge 1) {
+-    OK '22 routing: active exists -> diff in active'
++  $diffInActive = Count-DiffPatches 'ai_coding/active/normal-task'
++  if ($diffInActive -eq 0) {
++    OK '22 active exists: no diff written'
+   } else {
+-    BAD "22 routing: active exists (diffInActive=$diffInActive)"
++    BAD "22 active exists (diffInActive=$diffInActive)"
+   }
+ 
+-  # 23. Fallback: neither.
++  # 23. Neither active/<task>/ nor archive/<task>/ exists. The hook must
++  #     not create an active stub or write any diff snapshot.
+   Init-Repo
+   'edit' | Out-File -Encoding ascii note.txt
+   & git add note.txt | Out-Null
+   & git commit -q --no-verify -m "scratch`n`nAI-Verdict: PASS`nAI-Task: brand-new-task" | Out-Null
+-  $diffInActive = @(Get-ChildItem -Path ai_coding/active/brand-new-task -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
+-  if ($diffInActive -ge 1) {
+-    OK '23 routing: neither exists -> fallback to active'
++  $diffInActive    = Count-DiffPatches 'ai_coding/active/brand-new-task'
++  $diffInArchive   = Count-DiffPatches 'ai_coding/archive/brand-new-task'
++  $activeDirExists = Test-Path -LiteralPath ai_coding/active/brand-new-task
++  if ($diffInActive -eq 0 -and $diffInArchive -eq 0 -and -not $activeDirExists) {
++    OK '23 neither exists: no stub created, no diff written'
+   } else {
+-    BAD "23 routing: neither (diffInActive=$diffInActive)"
++    BAD "23 neither exists (diffInActive=$diffInActive diffInArchive=$diffInArchive activeDirExists=$activeDirExists)"
+   }
+ 
+ Write-Host ""
+diff --git a/tools/hooks-selftest.sh b/tools/hooks-selftest.sh
+index 6aaf9c7..5236ace 100755
+--- a/tools/hooks-selftest.sh
++++ b/tools/hooks-selftest.sh
+@@ -1,7 +1,8 @@
+ #!/usr/bin/env bash
+ # hooks-selftest.sh: exercise tools/hooks/{pre-commit,commit-msg,post-commit}
+ # against synthetic staged sets in a temp git repo. Asserts each rejection
+-# branch of pre-commit and pins the post-commit tri-branch routing fix.
++# branch of pre-commit and pins the post-commit contract that it writes
++# no diff_*.patch snapshots and creates no active task stubs.
+ #
+ # Standalone: does not require pytest or any project dependency.
+ # Run via:  bash tools/hooks-selftest.sh
+@@ -290,13 +291,24 @@ write_msg msg.txt archive-oldtask3 PASS
+ expect_msg_pass msg.txt "19 close-out commit-msg accepts with bare trailers"
+ 
+ # =============================================================================
+-# POST-COMMIT TEST CASES: the heart of fix B.
++# POST-COMMIT TEST CASES: contract is that the hook writes no diff_*.patch
++# snapshots and creates no active task stubs, in every routing scenario.
+ # =============================================================================
+ printf 'post-commit cases:\n'
+ 
+-# 20. Archive-only routing: archive/<task>/ exists, active/<task>/ does not.
+-#     A subsequent commit with AI-Task: <task> must NOT recreate an active
+-#     stub: diff must land in archive/<task>/.
++# Count diff_*.patch files under a directory (0 if dir missing). Used by every
++# case below. `find -maxdepth 1` keeps each assertion local to the named dir.
++count_diff_patches() {
++  if [ ! -d "$1" ]; then
++    printf '0'
++    return
++  fi
++  find "$1" -maxdepth 1 -name 'diff_*.patch' 2>/dev/null | wc -l | tr -d ' '
++}
++
++# 20. Archive-only: archive/<task>/ exists, active/<task>/ does not. A commit
++#     with AI-Task: <task> must not write any diff snapshot, anywhere, and
++#     must not create an active stub.
+ init_repo
+ mkdir -p ai_coding/archive/already-archived
+ printf 'old\n' > ai_coding/archive/already-archived/PROGRESS.md
+@@ -308,17 +320,18 @@ git commit -q --no-verify -m "scratch
+ 
+ AI-Verdict: PASS
+ AI-Task: already-archived"
+-diff_in_archive=$(ls ai_coding/archive/already-archived/diff_*.patch 2>/dev/null | wc -l)
++diff_in_archive=$(count_diff_patches ai_coding/archive/already-archived)
++diff_in_active=$(count_diff_patches ai_coding/active/already-archived)
+ active_dir_exists=0
+ [ -d ai_coding/active/already-archived ] && active_dir_exists=1
+-if [ "$diff_in_archive" -ge 1 ] && [ "$active_dir_exists" -eq 0 ]; then
+-  ok "20 routing: archive-only → diff in archive, no active stub"
++if [ "$diff_in_archive" -eq 0 ] && [ "$diff_in_active" -eq 0 ] && [ "$active_dir_exists" -eq 0 ]; then
++  ok "20 archive-only: no diff written, no active stub"
+ else
+-  bad "20 routing: archive-only (diff_in_archive=$diff_in_archive active_dir_exists=$active_dir_exists)"
++  bad "20 archive-only (diff_in_archive=$diff_in_archive diff_in_active=$diff_in_active active_dir_exists=$active_dir_exists)"
+ fi
+ 
+-# 21. CRITICAL: close-out commit (rename active/x → archive/x) → routes to
+-#     archive/x, NOT active/x. Pins fix B against regression.
++# 21. Close-out: rename active/x → archive/x then commit with AI-Task: x.
++#     Must not write a diff snapshot or recreate the active stub.
+ init_repo
+ mkdir -p ai_coding/active/closing-task
+ printf 'progress\n' > ai_coding/active/closing-task/PROGRESS.md
+@@ -329,16 +342,18 @@ git commit -q --no-verify -m "close out closing-task
+ 
+ AI-Verdict: PASS
+ AI-Task: closing-task"
+-diff_in_archive=$(ls ai_coding/archive/closing-task/diff_*.patch 2>/dev/null | wc -l)
++diff_in_archive=$(count_diff_patches ai_coding/archive/closing-task)
++diff_in_active=$(count_diff_patches ai_coding/active/closing-task)
+ active_dir_exists=0
+ [ -d ai_coding/active/closing-task ] && active_dir_exists=1
+-if [ "$diff_in_archive" -ge 1 ] && [ "$active_dir_exists" -eq 0 ]; then
+-  ok "21 close-out rename → diff in archive, no active stub (fix B)"
++if [ "$diff_in_archive" -eq 0 ] && [ "$diff_in_active" -eq 0 ] && [ "$active_dir_exists" -eq 0 ]; then
++  ok "21 close-out rename: no diff written, no active stub"
+ else
+-  bad "21 close-out rename (diff_in_archive=$diff_in_archive active_dir_exists=$active_dir_exists)"
++  bad "21 close-out rename (diff_in_archive=$diff_in_archive diff_in_active=$diff_in_active active_dir_exists=$active_dir_exists)"
+ fi
+ 
+-# 22. Active-exists routing: standard case.
++# 22. Active exists: active/<task>/ already there from earlier in the task.
++#     The hook must not add a diff snapshot to it.
+ init_repo
+ mkdir -p ai_coding/active/normal-task
+ printf 'progress\n' > ai_coding/active/normal-task/PROGRESS.md
+@@ -350,14 +365,15 @@ git commit -q --no-verify -m "scratch
+ 
+ AI-Verdict: PASS
+ AI-Task: normal-task"
+-diff_in_active=$(ls ai_coding/active/normal-task/diff_*.patch 2>/dev/null | wc -l)
+-if [ "$diff_in_active" -ge 1 ]; then
+-  ok "22 routing: active exists → diff in active"
++diff_in_active=$(count_diff_patches ai_coding/active/normal-task)
++if [ "$diff_in_active" -eq 0 ]; then
++  ok "22 active exists: no diff written"
+ else
+-  bad "22 routing: active exists (diff_in_active=$diff_in_active)"
++  bad "22 active exists (diff_in_active=$diff_in_active)"
+ fi
+ 
+-# 23. Fallback routing: neither active/<task>/ nor archive/<task>/ exists.
++# 23. Neither active/<task>/ nor archive/<task>/ exists. The hook must not
++#     create an active stub or write any diff snapshot.
+ init_repo
+ printf 'edit\n' > note.txt
+ git add note.txt
+@@ -365,11 +381,14 @@ git commit -q --no-verify -m "scratch
+ 
+ AI-Verdict: PASS
+ AI-Task: brand-new-task"
+-diff_in_active=$(ls ai_coding/active/brand-new-task/diff_*.patch 2>/dev/null | wc -l)
+-if [ "$diff_in_active" -ge 1 ]; then
+-  ok "23 routing: neither exists → fallback to active"
++diff_in_active=$(count_diff_patches ai_coding/active/brand-new-task)
++diff_in_archive=$(count_diff_patches ai_coding/archive/brand-new-task)
++active_dir_exists=0
++[ -d ai_coding/active/brand-new-task ] && active_dir_exists=1
++if [ "$diff_in_active" -eq 0 ] && [ "$diff_in_archive" -eq 0 ] && [ "$active_dir_exists" -eq 0 ]; then
++  ok "23 neither exists: no stub created, no diff written"
+ else
+-  bad "23 routing: neither exists (diff_in_active=$diff_in_active)"
++  bad "23 neither exists (diff_in_active=$diff_in_active diff_in_archive=$diff_in_archive active_dir_exists=$active_dir_exists)"
+ fi
+ 
+ # =============================================================================
+diff --git a/tools/hooks/post-commit b/tools/hooks/post-commit
+index 2fe9e34..49dafee 100755
+--- a/tools/hooks/post-commit
++++ b/tools/hooks/post-commit
+@@ -1,18 +1,7 @@
+ #!/usr/bin/env sh
+-# post-commit — route the just-committed diff using the AI-Task trailer.
+-#
+-# Migrated from .git/hooks/post-commit into version control. While moving,
+-# fixed routing bug B: the original unconditionally re-created
+-# ai_coding/active/<task>/ even when the task folder had already been moved
+-# to ai_coding/archive/<task>/, leaving an empty active stub on every
+-# close-out commit (e.g. cbacfc2 on chore/archive-commit-msg-trailer-hook).
+-#
+-# Tri-branch routing (replaces the buggy unconditional mkdir):
+-#   1. ai_coding/active/<task>/  exists → route there.
+-#   2. ai_coding/archive/<task>/ exists → route there.
+-#   3. Neither → fall back to creating ai_coding/active/<task>/.
+-# The hook's stated purpose is to follow the task folder wherever it
+-# currently lives, NOT to pin every routed diff to active/.
++# post-commit: parse the AI-Task / AI-Verdict trailers on the just-made
++# commit, log commits missing the AI-Task trailer to ai_coding/UNROUTED.log,
++# and fire a desktop notification. Writes nothing into the task folder.
+ #
+ # Constraints:
+ #   * POSIX-sh safe (Git for Windows MSYS bash).
+@@ -23,8 +12,6 @@ set -u
+ 
+ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+ AI_DIR="$REPO_ROOT/ai_coding"
+-ACTIVE_DIR="$AI_DIR/active"
+-ARCHIVE_DIR="$AI_DIR/archive"
+ UNROUTED_LOG="$AI_DIR/UNROUTED.log"
+ mkdir -p "$AI_DIR" 2>/dev/null || true
+ 
+@@ -69,35 +56,11 @@ if [ -z "$TASK" ]; then
+   exit 0
+ fi
+ 
+-# --- Tri-branch routing (fix B). ---------------------------------------------
+-if [ -d "$ACTIVE_DIR/$TASK" ]; then
+-  TASK_DIR="$ACTIVE_DIR/$TASK"
+-elif [ -d "$ARCHIVE_DIR/$TASK" ]; then
+-  TASK_DIR="$ARCHIVE_DIR/$TASK"
+-else
+-  TASK_DIR="$ACTIVE_DIR/$TASK"
+-  mkdir -p "$TASK_DIR" 2>/dev/null || true
+-fi
+-
+-DIFF_FILE="$TASK_DIR/diff_${TS}_${SHORT}.patch"
+-
+-EMPTY_TREE="$(git hash-object -t tree /dev/null 2>/dev/null \
+-              || printf '4b825dc642cb6eb9a060e54bf8d69288fbee4904')"
+-if git rev-parse --verify -q HEAD~1 >/dev/null 2>&1; then
+-  git diff HEAD~1 HEAD > "$DIFF_FILE" 2>/dev/null \
+-    || printf '[%s] git diff failed for %s\n' "$TS" "$SHA" \
+-         >> "$AI_DIR/notify.log"
+-else
+-  git diff "$EMPTY_TREE" HEAD > "$DIFF_FILE" 2>/dev/null \
+-    || printf '[%s] first-commit diff failed for %s\n' "$TS" "$SHA" \
+-         >> "$AI_DIR/notify.log"
+-fi
+-
+ case "$VERDICT" in
+   PASS|OVERRIDE|"")
+-    fire_notify "Commit routed: $TASK" "$SHORT (${VERDICT:-no-verdict})" 0 ;;
++    fire_notify "Commit recorded: $TASK" "$SHORT (${VERDICT:-no-verdict})" 0 ;;
+   *)
+-    fire_notify "Commit routed (unknown verdict)" \
++    fire_notify "Commit recorded (unknown verdict)" \
+       "Task '$TASK' commit $SHORT verdict='$VERDICT'" 1 ;;
+ esac
+ 

@@ -1,18 +1,7 @@
 #!/usr/bin/env sh
-# post-commit — route the just-committed diff using the AI-Task trailer.
-#
-# Migrated from .git/hooks/post-commit into version control. While moving,
-# fixed routing bug B: the original unconditionally re-created
-# ai_coding/active/<task>/ even when the task folder had already been moved
-# to ai_coding/archive/<task>/, leaving an empty active stub on every
-# close-out commit (e.g. cbacfc2 on chore/archive-commit-msg-trailer-hook).
-#
-# Tri-branch routing (replaces the buggy unconditional mkdir):
-#   1. ai_coding/active/<task>/  exists → route there.
-#   2. ai_coding/archive/<task>/ exists → route there.
-#   3. Neither → fall back to creating ai_coding/active/<task>/.
-# The hook's stated purpose is to follow the task folder wherever it
-# currently lives, NOT to pin every routed diff to active/.
+# post-commit: parse the AI-Task / AI-Verdict trailers on the just-made
+# commit, log commits missing the AI-Task trailer to ai_coding/UNROUTED.log,
+# and fire a desktop notification. Writes nothing into the task folder.
 #
 # Constraints:
 #   * POSIX-sh safe (Git for Windows MSYS bash).
@@ -23,8 +12,6 @@ set -u
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 AI_DIR="$REPO_ROOT/ai_coding"
-ACTIVE_DIR="$AI_DIR/active"
-ARCHIVE_DIR="$AI_DIR/archive"
 UNROUTED_LOG="$AI_DIR/UNROUTED.log"
 mkdir -p "$AI_DIR" 2>/dev/null || true
 
@@ -69,35 +56,11 @@ if [ -z "$TASK" ]; then
   exit 0
 fi
 
-# --- Tri-branch routing (fix B). ---------------------------------------------
-if [ -d "$ACTIVE_DIR/$TASK" ]; then
-  TASK_DIR="$ACTIVE_DIR/$TASK"
-elif [ -d "$ARCHIVE_DIR/$TASK" ]; then
-  TASK_DIR="$ARCHIVE_DIR/$TASK"
-else
-  TASK_DIR="$ACTIVE_DIR/$TASK"
-  mkdir -p "$TASK_DIR" 2>/dev/null || true
-fi
-
-DIFF_FILE="$TASK_DIR/diff_${TS}_${SHORT}.patch"
-
-EMPTY_TREE="$(git hash-object -t tree /dev/null 2>/dev/null \
-              || printf '4b825dc642cb6eb9a060e54bf8d69288fbee4904')"
-if git rev-parse --verify -q HEAD~1 >/dev/null 2>&1; then
-  git diff HEAD~1 HEAD > "$DIFF_FILE" 2>/dev/null \
-    || printf '[%s] git diff failed for %s\n' "$TS" "$SHA" \
-         >> "$AI_DIR/notify.log"
-else
-  git diff "$EMPTY_TREE" HEAD > "$DIFF_FILE" 2>/dev/null \
-    || printf '[%s] first-commit diff failed for %s\n' "$TS" "$SHA" \
-         >> "$AI_DIR/notify.log"
-fi
-
 case "$VERDICT" in
   PASS|OVERRIDE|"")
-    fire_notify "Commit routed: $TASK" "$SHORT (${VERDICT:-no-verdict})" 0 ;;
+    fire_notify "Commit recorded: $TASK" "$SHORT (${VERDICT:-no-verdict})" 0 ;;
   *)
-    fire_notify "Commit routed (unknown verdict)" \
+    fire_notify "Commit recorded (unknown verdict)" \
       "Task '$TASK' commit $SHORT verdict='$VERDICT'" 1 ;;
 esac
 

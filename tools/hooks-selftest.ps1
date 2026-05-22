@@ -1,6 +1,7 @@
 # hooks-selftest.ps1 -- exercise tools/hooks/{pre-commit,commit-msg,post-commit}
 # against synthetic staged sets in a temp git repo. Asserts each rejection
-# branch of pre-commit and pins the post-commit tri-branch routing fix.
+# branch of pre-commit and pins the post-commit contract that it writes
+# no diff_*.patch snapshots and creates no active task stubs.
 #
 # The hooks themselves are POSIX-sh scripts (Git for Windows MSYS bash runs
 # them). This script invokes them via git's own commit machinery (hooksPath)
@@ -300,7 +301,16 @@ Write-Host "pre-commit cases:"
 
   Write-Host "post-commit cases:"
 
-  # 20. Archive-only routing.
+  # Count diff_*.patch files under a directory (0 if dir missing). Local
+  # helper so each assertion below is scoped to the named directory only.
+  function Count-DiffPatches([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { return 0 }
+    return @(Get-ChildItem -LiteralPath $Path -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
+  }
+
+  # 20. Archive-only: archive/<task>/ exists, active/<task>/ does not. The
+  #     post-commit hook must write no diff snapshot anywhere and must not
+  #     create an active stub.
   Init-Repo
   New-Item -ItemType Directory -Path ai_coding/archive/already-archived -Force | Out-Null
   'old' | Out-File -Encoding ascii ai_coding/archive/already-archived/PROGRESS.md
@@ -309,15 +319,17 @@ Write-Host "pre-commit cases:"
   'change' | Out-File -Encoding ascii scratch.txt
   & git add scratch.txt | Out-Null
   & git commit -q --no-verify -m "scratch`n`nAI-Verdict: PASS`nAI-Task: already-archived" | Out-Null
-  $diffInArchive   = @(Get-ChildItem -Path ai_coding/archive/already-archived -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
+  $diffInArchive   = Count-DiffPatches 'ai_coding/archive/already-archived'
+  $diffInActive    = Count-DiffPatches 'ai_coding/active/already-archived'
   $activeDirExists = Test-Path -LiteralPath ai_coding/active/already-archived
-  if ($diffInArchive -ge 1 -and -not $activeDirExists) {
-    OK '20 routing: archive-only -> diff in archive, no active stub'
+  if ($diffInArchive -eq 0 -and $diffInActive -eq 0 -and -not $activeDirExists) {
+    OK '20 archive-only: no diff written, no active stub'
   } else {
-    BAD "20 routing: archive-only (diffInArchive=$diffInArchive activeDirExists=$activeDirExists)"
+    BAD "20 archive-only (diffInArchive=$diffInArchive diffInActive=$diffInActive activeDirExists=$activeDirExists)"
   }
 
-  # 21. CRITICAL: close-out rename -- fix B regression pin.
+  # 21. Close-out: rename active/x -> archive/x then commit with AI-Task: x.
+  #     Must not write a diff snapshot or recreate the active stub.
   Init-Repo
   New-Item -ItemType Directory -Path ai_coding/active/closing-task -Force | Out-Null
   'progress' | Out-File -Encoding ascii ai_coding/active/closing-task/PROGRESS.md
@@ -325,15 +337,17 @@ Write-Host "pre-commit cases:"
   & git commit -q --no-verify -m 'set up closing-task' | Out-Null
   Closeout-Rename 'closing-task'
   & git commit -q --no-verify -m "close out`n`nAI-Verdict: PASS`nAI-Task: closing-task" | Out-Null
-  $diffInArchive   = @(Get-ChildItem -Path ai_coding/archive/closing-task -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
+  $diffInArchive   = Count-DiffPatches 'ai_coding/archive/closing-task'
+  $diffInActive    = Count-DiffPatches 'ai_coding/active/closing-task'
   $activeDirExists = Test-Path -LiteralPath ai_coding/active/closing-task
-  if ($diffInArchive -ge 1 -and -not $activeDirExists) {
-    OK '21 close-out rename -> diff in archive, no active stub (fix B)'
+  if ($diffInArchive -eq 0 -and $diffInActive -eq 0 -and -not $activeDirExists) {
+    OK '21 close-out rename: no diff written, no active stub'
   } else {
-    BAD "21 close-out rename (diffInArchive=$diffInArchive activeDirExists=$activeDirExists)"
+    BAD "21 close-out rename (diffInArchive=$diffInArchive diffInActive=$diffInActive activeDirExists=$activeDirExists)"
   }
 
-  # 22. Active-exists routing.
+  # 22. Active exists already from earlier in the task. The hook must not
+  #     add a diff snapshot to it.
   Init-Repo
   New-Item -ItemType Directory -Path ai_coding/active/normal-task -Force | Out-Null
   'progress' | Out-File -Encoding ascii ai_coding/active/normal-task/PROGRESS.md
@@ -342,23 +356,26 @@ Write-Host "pre-commit cases:"
   'edit' | Out-File -Encoding ascii note.txt
   & git add note.txt | Out-Null
   & git commit -q --no-verify -m "scratch`n`nAI-Verdict: PASS`nAI-Task: normal-task" | Out-Null
-  $diffInActive = @(Get-ChildItem -Path ai_coding/active/normal-task -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
-  if ($diffInActive -ge 1) {
-    OK '22 routing: active exists -> diff in active'
+  $diffInActive = Count-DiffPatches 'ai_coding/active/normal-task'
+  if ($diffInActive -eq 0) {
+    OK '22 active exists: no diff written'
   } else {
-    BAD "22 routing: active exists (diffInActive=$diffInActive)"
+    BAD "22 active exists (diffInActive=$diffInActive)"
   }
 
-  # 23. Fallback: neither.
+  # 23. Neither active/<task>/ nor archive/<task>/ exists. The hook must
+  #     not create an active stub or write any diff snapshot.
   Init-Repo
   'edit' | Out-File -Encoding ascii note.txt
   & git add note.txt | Out-Null
   & git commit -q --no-verify -m "scratch`n`nAI-Verdict: PASS`nAI-Task: brand-new-task" | Out-Null
-  $diffInActive = @(Get-ChildItem -Path ai_coding/active/brand-new-task -Filter 'diff_*.patch' -ErrorAction SilentlyContinue).Count
-  if ($diffInActive -ge 1) {
-    OK '23 routing: neither exists -> fallback to active'
+  $diffInActive    = Count-DiffPatches 'ai_coding/active/brand-new-task'
+  $diffInArchive   = Count-DiffPatches 'ai_coding/archive/brand-new-task'
+  $activeDirExists = Test-Path -LiteralPath ai_coding/active/brand-new-task
+  if ($diffInActive -eq 0 -and $diffInArchive -eq 0 -and -not $activeDirExists) {
+    OK '23 neither exists: no stub created, no diff written'
   } else {
-    BAD "23 routing: neither (diffInActive=$diffInActive)"
+    BAD "23 neither exists (diffInActive=$diffInActive diffInArchive=$diffInArchive activeDirExists=$activeDirExists)"
   }
 
 Write-Host ""
